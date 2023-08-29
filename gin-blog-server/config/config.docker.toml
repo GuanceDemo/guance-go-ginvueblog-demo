@@ -22,7 +22,7 @@ Dbname = "gvb"
 Username = "root"
 Password = "123456"
 # 日志级别 silent, error, warn, info, 默认 info
-LogMode = "error" # silent 相当于关闭日志
+LogMode = "info" # silent 相当于关闭日志
 
 # 优先会读取 docker-compose 中的环境变量，这里基本不用动
 [Redis]
@@ -51,12 +51,12 @@ ExpireTime = 15  # 过期时间 (分钟)
 
 # 根据需求调整
 [Zap]
-Level = "error"         # 日志级别: debug, info, warn, error, dpanic, panic, fatal, 默认 info
+Level = "debug"         # 日志级别: debug, info, warn, error, dpanic, panic, fatal, 默认 info
 Format = "console"     # 输出格式: console, json
 Prefix = "[GIN-BLOG] " # 日志前缀
 Directory = "log"      # 存放日志的文件夹
-ShowLine = false       # 是否显示哪行调用
-LogInConsole = false   # 是否输出到控制台
+ShowLine = true       # 是否显示哪行调用
+LogInConsole = true   # 是否输出到控制台
 
 # 线上部署建议使用七牛云存储, 自行去七牛云创建对象存储服务
 # https://developer.qiniu.com/kodo/1233/console-quickstart

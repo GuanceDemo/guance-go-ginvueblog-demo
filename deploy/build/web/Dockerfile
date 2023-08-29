@@ -17,5 +17,5 @@ ENTRYPOINT ["/docker-entrypoint.sh"]
 # 每次容器启动时执行
 CMD [ "nginx", "-g", "daemon off;" ]
 
-EXPOSE 80
+EXPOSE 8081
 EXPOSE 443
