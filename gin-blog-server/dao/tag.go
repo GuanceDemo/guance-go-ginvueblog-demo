@@ -4,15 +4,17 @@ import (
 	"gin-blog/model"
 	"gin-blog/model/req"
 	"gin-blog/model/resp"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Tag struct{}
 
-func (*Tag) GetList(req req.PageQuery) ([]resp.TagVO, int64) {
+func (*Tag) GetList(req req.PageQuery, ctx *gin.Context) ([]resp.TagVO, int64) {
 	var datas = make([]resp.TagVO, 0)
 	var total int64
 
-	db := DB.Table("tag t").
+	db := DB.WithContext(ctx.Request.Context()).Table("tag t").
 		Select("t.id", "name", "COUNT(at.article_id) AS article_count", "t.created_at", "t.updated_at").
 		Joins("LEFT JOIN article_tag at ON t.id = at.tag_id")
 	if req.Keyword != "" {
@@ -25,16 +27,16 @@ func (*Tag) GetList(req req.PageQuery) ([]resp.TagVO, int64) {
 	return datas, total
 }
 
-func (*Tag) GetOption() []resp.OptionVo {
+func (*Tag) GetOption(ctx *gin.Context) []resp.OptionVo {
 	var list = make([]resp.OptionVo, 0)
-	DB.Model(&model.Tag{}).Select("id", "name").Find(&list)
+	DB.WithContext(ctx.Request.Context()).Model(&model.Tag{}).Select("id", "name").Find(&list)
 	return list
 }
 
 // 根据 [文章id] 获取 [标签名称列表]
-func (*Tag) GetTagNamesByArtId(id int) []string {
+func (*Tag) GetTagNamesByArtId(id int, ctx *gin.Context) []string {
 	list := make([]string, 0)
-	DB.Table("tag").
+	DB.WithContext(ctx.Request.Context()).Table("tag").
 		Joins("LEFT JOIN article_tag ON tag.id = article_tag.tag_id").
 		Where("article_id", id).
 		Pluck("name", &list)

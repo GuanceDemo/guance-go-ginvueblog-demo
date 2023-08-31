@@ -3,15 +3,17 @@ package dao
 import (
 	"gin-blog/model"
 	"gin-blog/model/req"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Message struct{}
 
-func (*Message) GetList(req req.GetMessages) ([]model.Message, int64) {
+func (*Message) GetList(req req.GetMessages, ctx *gin.Context) ([]model.Message, int64) {
 	var list = make([]model.Message, 0)
 	var total int64
 
-	db := DB.Model(&Message{})
+	db := DB.WithContext(ctx.Request.Context()).Model(&Message{})
 	if req.Nickname != "" {
 		db = db.Where("nickname like ?", "%"+req.Nickname+"%")
 	}

@@ -9,12 +9,13 @@ export  MYSQL_USERNAME=root
 export  MYSQL_PASSWORD=123456
 export  REDIS_ADDR=172.12.0.2:6379
 export  REDIS_PASSWORD=123456
-
-export SERVICE_NAME=Gin-Vue-Blog
+export  OTEL_DB_SERVICE_NAME=Gin-Vue-Blog-MySQL
+export  OTEL_SERVICE_ADMIN_NAME=Gin-Vue-Blog-Admin
+export  OTEL_SERVICE_FRONT_NAME=Gin-Vue-Blog-Front
+export  OTEL_REDIS_SERVICE_NAME=Gin-Vue-Blog-Redis
 export SERVICE_VERSION=v1.0
 export OTEL_EXPORTER_OTLP_ENDPOINT=localhost:9529
 export OTEL_EXPORTER_OTLP_URL_PATH=/otel/v1/traces
-export DB_SERVICE_NAME=GinBlog-mysql
 export INSECURE_MODE=false
 
 rm -rf ./server

@@ -12,7 +12,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v9"
+	"github.com/redis/go-redis/v9"
 )
 
 type Article struct{}
@@ -20,34 +20,34 @@ type Article struct{}
 /* 后台接口 */
 
 // 软删除(回收站)
-func (*Article) SoftDelete(ids []int, isDelete *int8) (code int) {
+func (*Article) SoftDelete(ids []int, ctx *gin.Context, isDelete *int8) (code int) {
 	var isTop int8 = 0
-	dao.Updates(&model.Article{IsTop: &isTop, IsDelete: isDelete}, "id IN ?", ids)
+	dao.Updates(&model.Article{IsTop: &isTop, IsDelete: isDelete}, ctx, "id IN ?", ids)
 	return r.OK
 }
 
-func (*Article) Delete(ids []int) (code int) {
+func (*Article) Delete(ids []int, ctx *gin.Context) (code int) {
 	// 删除 [文章-标签] 关联
-	dao.Delete(model.ArticleTag{}, "article_id IN ?", ids)
+	dao.Delete(model.ArticleTag{}, ctx, "article_id IN ?", ids)
 	// 删除 [文章]
-	dao.Delete(model.Article{}, "id IN ?", ids)
+	dao.Delete(model.Article{}, ctx, "id IN ?", ids)
 	return r.OK
 }
 
-func (*Article) UpdateTop(req req.UpdateArtTop) (code int) {
+func (*Article) UpdateTop(req req.UpdateArtTop, ctx *gin.Context) (code int) {
 	article := model.Article{
 		Universal: model.Universal{ID: req.ID},
 		IsTop:     req.IsTop,
 	}
-	dao.Update(&article, "is_top")
+	dao.Update(&article, ctx, "is_top")
 	return r.OK
 }
 
-func (*Article) GetList(req req.GetArts) resp.PageResult[[]resp.ArticleVO] {
-	articleList, total := articleDao.GetList(req)
+func (*Article) GetList(req req.GetArts, ctx *gin.Context) resp.PageResult[[]resp.ArticleVO] {
+	articleList, total := articleDao.GetList(req, ctx)
 
-	likeCountMap := utils.Redis.HGetAll(KEY_ARTICLE_LIKE_COUNT) // 点赞数量 map
-	viewCountZ := utils.Redis.ZRangeWithScores(KEY_ARTICLE_VIEW_COUNT, 0, -1)
+	likeCountMap := utils.Redis.HGetAll(KEY_ARTICLE_LIKE_COUNT, ctx) // 点赞数量 map
+	viewCountZ := utils.Redis.ZRangeWithScores(KEY_ARTICLE_VIEW_COUNT, ctx, 0, -1)
 	viewCountMap := getViewCountMap(viewCountZ) // 访问数量 map
 
 	for i, article := range articleList {
@@ -64,10 +64,10 @@ func (*Article) GetList(req req.GetArts) resp.PageResult[[]resp.ArticleVO] {
 }
 
 // 根据 [文章id] 获取 [文章详情]
-func (*Article) GetInfo(id int) resp.ArticleDetailVO {
-	article := dao.GetOne(model.Article{}, "id", id)
-	category := dao.GetOne(model.Category{}, "id", article.CategoryId)
-	tagNames := tagDao.GetTagNamesByArtId(id)
+func (*Article) GetInfo(id int, ctx *gin.Context) resp.ArticleDetailVO {
+	article := dao.GetOne(model.Article{}, "id", ctx, id)
+	category := dao.GetOne(model.Category{}, "id", ctx, article.CategoryId)
+	tagNames := tagDao.GetTagNamesByArtId(id, ctx)
 
 	articleVo := utils.CopyProperties[resp.ArticleDetailVO](article)
 	// 前端 category 为 '' 不显示 placeholder, 为 null 显示 placeholder
@@ -79,70 +79,70 @@ func (*Article) GetInfo(id int) resp.ArticleDetailVO {
 }
 
 // TODO: 添加事务
-func (*Article) SaveOrUpdate(req req.SaveOrUpdateArt, userId int) (code int) {
+func (*Article) SaveOrUpdate(req req.SaveOrUpdateArt, ctx *gin.Context, userId int) (code int) {
 	// 设置默认图片 (blogConfig 中配置)
 	if req.Img == "" {
-		req.Img = blogInfoService.GetBlogConfig().ArticleCover // 设置默认图片
+		req.Img = blogInfoService.GetBlogConfig(ctx).ArticleCover // 设置默认图片
 	}
 
 	article := utils.CopyProperties[model.Article](req) // po -> vo
 	article.UserId = userId
 
 	// 维护 [文章-分类] 关联
-	category := saveArticleCategory(req)
+	category := saveArticleCategory(req, ctx)
 	if !category.IsEmpty() {
 		article.CategoryId = category.ID
 	}
 
 	// 先 添加/更新 文章, 可以获取到 ID
 	if article.ID == 0 {
-		dao.Create(&article)
+		dao.Create(&article, ctx)
 	} else {
-		dao.Update(&article)
+		dao.Update(&article, ctx)
 	}
 
 	// 维护 [文章-标签] 关联
-	saveArticleTag(req, article.ID)
+	saveArticleTag(req, ctx, article.ID)
 	return r.OK
 }
 
 // 维护 [文章-分类] 关联
-func saveArticleCategory(req req.SaveOrUpdateArt) model.Category {
-	category := dao.GetOne(model.Category{}, "name = ?", req.CategoryName)
+func saveArticleCategory(req req.SaveOrUpdateArt, ctx *gin.Context) model.Category {
+	category := dao.GetOne(model.Category{}, "name = ?", ctx, req.CategoryName)
 	if category.IsEmpty() && req.Status != model.DRAFT {
 		category.Name = req.CategoryName
-		dao.Create(&category)
+		dao.Create(&category, ctx)
 	}
 	return category
 }
 
 // 维护 [文章-标签] 关联
-func saveArticleTag(req req.SaveOrUpdateArt, articleId int) {
+func saveArticleTag(req req.SaveOrUpdateArt, ctx *gin.Context, articleId int) {
 	// 清除文章对应的标签关联
 	if req.ID != 0 {
-		dao.Delete(model.ArticleTag{}, "article_id = ?", req.ID)
+		dao.Delete(model.ArticleTag{}, ctx, "article_id = ?", req.ID)
 	}
 	// 遍历 req.TagNames 中传来的标签, 不存在则新建
 	var articleTags []model.ArticleTag // 文章-标签 关系
 	for _, tagName := range req.TagNames {
-		tag := dao.GetOne(model.Tag{}, "name = ?", tagName)
+		tag := dao.GetOne(model.Tag{}, "name = ?", ctx, tagName)
 		// 标签不存在则创建
 		if tag.IsEmpty() {
 			tag.Name = tagName
-			dao.Create(&tag)
+			dao.Create(&tag, ctx)
 		}
 		articleTags = append(articleTags, model.ArticleTag{
 			ArticleId: articleId,
 			TagId:     tag.ID,
 		})
 	}
-	dao.Create(&articleTags)
+	dao.Create(&articleTags, ctx)
 }
 
 // 导出文章: (目前是前端导出)
-func (*Article) Export(ids []int) []string {
+func (*Article) Export(ids []int, ctx *gin.Context) []string {
 	urls := make([]string, 0)
-	articles := dao.List([]model.Article{}, "title, content", "", "id in ?", ids)
+	articles := dao.List([]model.Article{}, ctx, "title, content", "", "id in ?", ids)
 	for _, article := range articles {
 		utils.File.WriteFile(article.Title+".md", config.Cfg.Upload.MdStorePath, article.Content)
 		urls = append(urls, config.Cfg.Upload.MdPath+article.Title+".md")
@@ -151,51 +151,51 @@ func (*Article) Export(ids []int) []string {
 }
 
 // 导入文章: 标题 + 内容
-func (*Article) Import(title, content string, userId int) {
+func (*Article) Import(title, content string, ctx *gin.Context, userId int) {
 	article := model.Article{
 		Title:   title,
 		Content: content,
 		Status:  model.DRAFT,
-		Type:    1,                                            // 默认为原创
-		Img:     blogInfoService.GetBlogConfig().ArticleCover, // 默认图片
+		Type:    1,                                               // 默认为原创
+		Img:     blogInfoService.GetBlogConfig(ctx).ArticleCover, // 默认图片
 		UserId:  userId,
 	}
-	dao.Create(&article)
+	dao.Create(&article, ctx)
 }
 
 /* 前台接口 */
 // 获取前台文章列表
-func (*Article) GetFrontList(req req.GetFrontArts) []resp.FrontArticleVO {
-	list, _ := articleDao.GetFrontList(req)
+func (*Article) GetFrontList(req req.GetFrontArts, ctx *gin.Context) []resp.FrontArticleVO {
+	list, _ := articleDao.GetFrontList(req, ctx)
 	return list
 }
 
 // 获取前台文章详情
 func (*Article) GetFrontInfo(c *gin.Context, id int) resp.FrontArticleDetailVO {
 	// 查询具体文章
-	article := articleDao.GetInfoById(id)
+	article := articleDao.GetInfoById(id, c)
 	// 查询推荐文章 (6篇)
-	article.RecommendArticles = articleDao.GetRecommendList(id, 6)
+	article.RecommendArticles = articleDao.GetRecommendList(id, 6, c)
 	// 查询最新文章 (5篇)
-	article.NewestArticles = articleDao.GetNewestList(5)
+	article.NewestArticles = articleDao.GetNewestList(5, c)
 	// 更新文章浏览量 TODO: 删除文章时删除其浏览量
 	// updateArticleViewCount(c, id)
 	// * 目前请求一次就会增加访问量, 即刷新可以刷访问量
-	utils.Redis.ZincrBy(KEY_ARTICLE_VIEW_COUNT, strconv.Itoa(id), 1)
+	utils.Redis.ZincrBy(KEY_ARTICLE_VIEW_COUNT, strconv.Itoa(id), c, 1)
 	// 获取上一篇文章, 下一篇文章
-	article.LastArticle = articleDao.GetLast(id)
-	article.NextArticle = articleDao.GetNext(id)
+	article.LastArticle = articleDao.GetLast(id, c)
+	article.NextArticle = articleDao.GetNext(id, c)
 	// 点赞量, 浏览量
-	article.ViewCount = utils.Redis.ZScore(KEY_ARTICLE_VIEW_COUNT, strconv.Itoa(id))
-	article.LikeCount = utils.Redis.HGet(KEY_ARTICLE_LIKE_COUNT, strconv.Itoa(id))
+	article.ViewCount = utils.Redis.ZScore(KEY_ARTICLE_VIEW_COUNT, strconv.Itoa(id), c)
+	article.LikeCount = utils.Redis.HGet(c, KEY_ARTICLE_LIKE_COUNT, strconv.Itoa(id))
 	// 评论数量
-	article.CommentCount = int(commentDao.GetArticleCommentCount(id))
+	article.CommentCount = int(commentDao.GetArticleCommentCount(id, c))
 	return article
 }
 
 // 获取前台文章归档
-func (*Article) GetArchiveList(req req.GetFrontArts) resp.PageResult[[]resp.ArchiveVO] {
-	articles, total := articleDao.GetFrontList(req)
+func (*Article) GetArchiveList(req req.GetFrontArts, ctx *gin.Context) resp.PageResult[[]resp.ArchiveVO] {
+	articles, total := articleDao.GetFrontList(req, ctx)
 	archives := make([]resp.ArchiveVO, 0)
 	for _, article := range articles {
 		archives = append(archives, resp.ArchiveVO{
@@ -213,16 +213,16 @@ func (*Article) GetArchiveList(req req.GetFrontArts) resp.PageResult[[]resp.Arch
 }
 
 // 前台文章点赞
-func (*Article) SaveLike(uid, articleId int) (code int) {
+func (*Article) SaveLike(uid, articleId int, ctx *gin.Context) (code int) {
 	// 记录某个用户已经对某个文章点过赞
 	articleLikeUserKey := KEY_ARTICLE_USER_LIKE_SET + strconv.Itoa(uid)
 	// 该文章已经被记录过, 再点赞就是取消点赞
-	if utils.Redis.SIsMember(articleLikeUserKey, articleId) {
-		utils.Redis.SRem(articleLikeUserKey, articleId)
-		utils.Redis.HIncrBy(KEY_ARTICLE_LIKE_COUNT, strconv.Itoa(articleId), -1)
+	if utils.Redis.SIsMember(articleLikeUserKey, ctx, articleId) {
+		utils.Redis.SRem(articleLikeUserKey, ctx, articleId)
+		utils.Redis.HIncrBy(KEY_ARTICLE_LIKE_COUNT, strconv.Itoa(articleId), ctx, -1)
 	} else { // 未被记录过, 则是增加点赞
-		utils.Redis.SAdd(articleLikeUserKey, articleId)
-		utils.Redis.HIncrBy(KEY_ARTICLE_LIKE_COUNT, strconv.Itoa(articleId), 1)
+		utils.Redis.SAdd(articleLikeUserKey, ctx, articleId)
+		utils.Redis.HIncrBy(KEY_ARTICLE_LIKE_COUNT, strconv.Itoa(articleId), ctx, 1)
 	}
 	return r.OK
 }
@@ -231,14 +231,14 @@ func (*Article) SaveLike(uid, articleId int) (code int) {
 // TODO: 集成 ElasticSearch?
 // 文章搜索: 关键字从标题中搜到则高亮标题中的关键字, 内容中搜到则高亮内容中的关键字
 // 关键字前方文本最多 25, 后方最多 175
-func (*Article) Search(q req.KeywordQuery) []resp.ArticleSearchVO {
+func (*Article) Search(q req.KeywordQuery, ctx *gin.Context) []resp.ArticleSearchVO {
 	res := make([]resp.ArticleSearchVO, 0)
 
 	if q.Keyword == "" {
 		return res
 	}
 
-	articleList := dao.List([]model.Article{}, "*", "",
+	articleList := dao.List([]model.Article{}, ctx, "*", "",
 		"is_delete = 0 AND status = 1 AND (title LIKE ? OR content LIKE ?)",
 		"%"+q.Keyword+"%", "%"+q.Keyword+"%")
 

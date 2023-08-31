@@ -11,17 +11,17 @@ import (
 type Comment struct{}
 
 func (*Comment) Delete(c *gin.Context) {
-	r.SendCode(c, commentService.Delete(utils.BindJson[[]int](c)))
+	r.SendCode(c, commentService.Delete(utils.BindJson[[]int](c), c))
 }
 
 // 修改审核
 func (*Comment) UpdateReview(c *gin.Context) {
-	r.SendCode(c, commentService.UpdateReview(utils.BindValidJson[req.UpdateReview](c)))
+	r.SendCode(c, commentService.UpdateReview(utils.BindValidJson[req.UpdateReview](c), c))
 }
 
 // TODO: 完善
 func (*Comment) GetList(c *gin.Context) {
 	var req = utils.BindValidQuery[req.GetComments](c)
 	utils.CheckQueryPage(&req.PageSize, &req.PageNum)
-	r.SuccessData(c, commentService.GetList(req))
+	r.SuccessData(c, commentService.GetList(req, c))
 }

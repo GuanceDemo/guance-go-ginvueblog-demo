@@ -6,12 +6,14 @@ import (
 	"gin-blog/model/req"
 	"gin-blog/model/resp"
 	"gin-blog/utils/r"
+
+	"github.com/gin-gonic/gin"
 )
 
 type OperationLog struct{}
 
-func (*OperationLog) GetList(req req.PageQuery) resp.PageResult[[]model.OperationLog] {
-	list, total := operationLogDao.GetList(req)
+func (*OperationLog) GetList(req req.PageQuery, ctx *gin.Context) resp.PageResult[[]model.OperationLog] {
+	list, total := operationLogDao.GetList(req, ctx)
 	return resp.PageResult[[]model.OperationLog]{
 		PageSize: req.PageSize,
 		PageNum:  req.PageNum,
@@ -20,7 +22,7 @@ func (*OperationLog) GetList(req req.PageQuery) resp.PageResult[[]model.Operatio
 	}
 }
 
-func (*OperationLog) Delete(ids []int) (code int) {
-	dao.Delete(model.OperationLog{}, "id in ?", ids)
+func (*OperationLog) Delete(ids []int, ctx *gin.Context) (code int) {
+	dao.Delete(model.OperationLog{}, ctx, "id in ?", ids)
 	return r.OK
 }

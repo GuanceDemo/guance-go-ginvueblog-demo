@@ -11,13 +11,13 @@ import (
 type Page struct{}
 
 func (*Page) GetList(c *gin.Context) {
-	r.SuccessData(c, pageService.GetList())
+	r.SuccessData(c, pageService.GetList(c))
 }
 
 func (*Page) SaveOrUpdate(c *gin.Context) {
-	r.SendCode(c, pageService.SaveOrUpdate(utils.BindJson[req.AddOrEditPage](c)))
+	r.SendCode(c, pageService.SaveOrUpdate(utils.BindJson[req.AddOrEditPage](c), c))
 }
 
 func (*Page) Delete(c *gin.Context) {
-	r.SendCode(c, pageService.Delete(utils.BindJson[[]int](c)))
+	r.SendCode(c, pageService.Delete(utils.BindJson[[]int](c), c))
 }

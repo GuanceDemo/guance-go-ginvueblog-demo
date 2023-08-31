@@ -4,9 +4,12 @@ import (
 	"context"
 	"gin-blog/config"
 	"log"
+	"os"
 	"time"
 
-	"github.com/go-redis/redis/v9"
+	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/extra/redisotel/v9"
+	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 )
 
@@ -24,6 +27,15 @@ type _redis struct{}
 
 // 初始化 redis 连接
 func InitRedis() *redis.Client {
+	traceVar := &TraceVar{
+		CollectorEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		CollectorURLPath:  os.Getenv("OTEL_EXPORTER_OTLP_URL_PATH"),
+		ServiceNameKey:    os.Getenv("OTEL_REDIS_SERVICE_NAME"),
+		ServiceVersion:    os.Getenv("SERVICE_VERSION"),
+	}
+
+	InitTracer(traceVar)
+
 	redisCfg := config.Cfg.Redis
 	rdb = redis.NewClient(&redis.Options{
 		Addr:     redisCfg.Addr,
@@ -36,22 +48,40 @@ func InitRedis() *redis.Client {
 		log.Panic("Reids 连接失败: ", err)
 	}
 	log.Println("Redis 连接成功 ")
+
+	if err := redisotel.InstrumentTracing(rdb); err != nil {
+		panic(err)
+
+	}
+
+	// 加入otel可观测改造
+
+	// // Enable tracing instrumentation.
+	// if err := redisotel.InstrumentTracing(rdb); err != nil {
+	// 	panic(err)
+	// }
+
+	// // Enable metrics instrumentation.
+	// if err := redisotel.InstrumentMetrics(rdb); err != nil {
+	// 	panic(err)
+	// }
+
 	return rdb
 }
 
 // 通用执行指令方法
 // func (*redisUtil) Execute(cmd string, args ...any) (any, error) {
-// 	return rdb.Do(ctx, args...).Result()
+// 	return rdb.Do(c.Request.Context(), args...).Result()
 // }
 
 // redis 获取根据匹配项获取键名列表
-func (*_redis) Keys(pattern string) []string {
-	return rdb.Keys(ctx, pattern).Val()
+func (*_redis) Keys(pattern string, c *gin.Context) []string {
+	return rdb.Keys(c.Request.Context(), pattern).Val()
 }
 
 // redis 删除值
-func (*_redis) Del(key string) {
-	err := rdb.Del(ctx, key).Err()
+func (*_redis) Del(key string, c *gin.Context) {
+	err := rdb.Del(c.Request.Context(), key).Err()
 	if err != nil {
 		Logger.Error(REDIS_UTIL_ERR_PREFIX+"Del: ", zap.Error(err))
 		panic(err)
@@ -59,8 +89,8 @@ func (*_redis) Del(key string) {
 }
 
 // redis 设置 key value 过期时间
-func (*_redis) Set(key string, value interface{}, expiration time.Duration) {
-	err := rdb.Set(ctx, key, value, expiration).Err()
+func (*_redis) Set(key string, value interface{}, expiration time.Duration, c *gin.Context) {
+	err := rdb.Set(c.Request.Context(), key, value, expiration).Err()
 	if err != nil {
 		Logger.Error(REDIS_UTIL_ERR_PREFIX+"Set: ", zap.Error(err))
 		panic(err)
@@ -70,8 +100,8 @@ func (*_redis) Set(key string, value interface{}, expiration time.Duration) {
 // 将 key 中存储的数字 + 1
 // 如果 key 不存在, 默认初始化为 0, 再执行 INCR 操作
 // 如果 值 包含错误的类型, 或是字符串类型的值不能表示为数字, 返回错误
-func (*_redis) Incr(key string) {
-	err := rdb.Incr(ctx, key).Err()
+func (*_redis) Incr(key string, c *gin.Context) {
+	err := rdb.Incr(c.Request.Context(), key).Err()
 	if err != nil {
 		Logger.Error(REDIS_UTIL_ERR_PREFIX+"Incr: ", zap.Error(err))
 		panic(err)
@@ -79,13 +109,13 @@ func (*_redis) Incr(key string) {
 }
 
 // redis 获取值
-func (*_redis) GetVal(key string) string {
-	return rdb.Get(ctx, key).Val()
+func (*_redis) GetVal(key string, c *gin.Context) string {
+	return rdb.Get(c.Request.Context(), key).Val()
 }
 
 // redis 获取数字
-func (*_redis) GetInt(key string) int {
-	val, _ := rdb.Get(ctx, key).Int()
+func (*_redis) GetInt(key string, c *gin.Context) int {
+	val, _ := rdb.Get(c.Request.Context(), key).Int()
 	// if err != nil {
 	// 	Logger.Error(REDIS_UTIL_ERR_PREFIX+"GetInt: ", zap.Error(err))
 	// 	panic(err)
@@ -94,13 +124,13 @@ func (*_redis) GetInt(key string) int {
 }
 
 // 从 redis 中取值, 不存在会有 redis: nil 的错误
-func (*_redis) GetResult(key string) (string, error) {
-	return rdb.Get(ctx, key).Result()
+func (*_redis) GetResult(key string, c *gin.Context) (string, error) {
+	return rdb.Get(c.Request.Context(), key).Result()
 }
 
 // 往 [集合(Set)] 中添加 元素
-func (*_redis) SAdd(key string, members ...any) {
-	err := rdb.SAdd(ctx, key, members...).Err()
+func (*_redis) SAdd(key string, c *gin.Context, members ...any) {
+	err := rdb.SAdd(c.Request.Context(), key, members...).Err()
 	if err != nil {
 		Logger.Error(REDIS_UTIL_ERR_PREFIX+"SAdd: ", zap.Error(err))
 		panic(err)
@@ -108,25 +138,25 @@ func (*_redis) SAdd(key string, members ...any) {
 }
 
 // 判断 元素 是否是 [集合(Set)] 的成员
-func (*_redis) SIsMember(key string, member any) bool {
-	return rdb.SIsMember(ctx, key, member).Val()
+func (*_redis) SIsMember(key string, c *gin.Context, member any) bool {
+	return rdb.SIsMember(c.Request.Context(), key, member).Val()
 }
 
 // 获取 [集合(Set)] 的成员列表
-func (*_redis) SMembers(key string) []string {
-	return rdb.SMembers(ctx, key).Val()
+func (*_redis) SMembers(key string, c *gin.Context) []string {
+	return rdb.SMembers(c.Request.Context(), key).Val()
 }
 
 // 移除 [集合(Set)] 中的元素
-func (*_redis) SRem(key string, member any) {
-	rdb.SRem(ctx, key, member)
+func (*_redis) SRem(key string, c *gin.Context, member any) {
+	rdb.SRem(c.Request.Context(), key, member)
 }
 
 // 为[哈希表(Hash)]中的字段值加上指定增量值 (可以为负)
 // 如果 key 不存在, 自动创建哈希表并执行操作
 // 如果 field 不存在, 创建该字段值并初始化为 0
-func (*_redis) HIncrBy(key, field string, incr int64) {
-	err := rdb.HIncrBy(ctx, key, field, incr).Err()
+func (*_redis) HIncrBy(key, field string, c *gin.Context, incr int64) {
+	err := rdb.HIncrBy(c.Request.Context(), key, field, incr).Err()
 	if err != nil {
 		Logger.Error(REDIS_UTIL_ERR_PREFIX+"HIncrBy: ", zap.Error(err))
 		panic(err)
@@ -134,32 +164,32 @@ func (*_redis) HIncrBy(key, field string, incr int64) {
 }
 
 // 获取[哈希表(Hash)]中 指定字段的值
-func (*_redis) HGet(key, filed string) int {
-	val, _ := rdb.HGet(ctx, key, filed).Int()
+func (*_redis) HGet(c *gin.Context, key, filed string) int {
+	val, _ := rdb.HGet(c.Request.Context(), key, filed).Int()
 	return val
 }
 
 // 获取[哈希表(Hash)]中 所有的字段和值
-func (*_redis) HGetAll(key string) map[string]string {
-	return rdb.HGetAll(ctx, key).Val()
+func (*_redis) HGetAll(key string, c *gin.Context) map[string]string {
+	return rdb.HGetAll(c.Request.Context(), key).Val()
 }
 
 // func (*redisUtil) ZAdd(key string, me) {
 // rdb.ZAdd()
 // }
 
-func (*_redis) ZRangeWithScores(key string, start, stop int64) []redis.Z {
-	return rdb.ZRangeWithScores(ctx, key, start, stop).Val()
+func (*_redis) ZRangeWithScores(key string, c *gin.Context, start, stop int64) []redis.Z {
+	return rdb.ZRangeWithScores(c.Request.Context(), key, start, stop).Val()
 }
 
 // 获取[有序集合]中, 成员的分数值
-func (*_redis) ZScore(key, member string) int {
-	return int(rdb.ZScore(ctx, key, member).Val())
+func (*_redis) ZScore(key, member string, c *gin.Context) int {
+	return int(rdb.ZScore(c.Request.Context(), key, member).Val())
 }
 
 // [有序集合]中 key 中指定字段的整数值加上增量 incr
-func (*_redis) ZincrBy(key, member string, incr float64) {
-	err := rdb.ZIncrBy(ctx, key, incr, member).Err()
+func (*_redis) ZincrBy(key, member string, c *gin.Context, incr float64) {
+	err := rdb.ZIncrBy(c.Request.Context(), key, incr, member).Err()
 	if err != nil {
 		Logger.Error(REDIS_UTIL_ERR_PREFIX+"ZincrBy: ", zap.Error(err))
 		panic(err)

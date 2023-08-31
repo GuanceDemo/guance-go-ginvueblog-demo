@@ -5,6 +5,11 @@ import (
 	"gin-blog/routes/middleware"
 	"net/http"
 
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+
+	"gin-blog/utils"
+	"os"
+
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -12,6 +17,18 @@ import (
 
 // 前台页面接口路由
 func FrontRouter() http.Handler {
+
+	// 开始tracer
+
+	traceVar := &utils.TraceVar{
+		CollectorEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		CollectorURLPath:  os.Getenv("OTEL_EXPORTER_OTLP_URL_PATH"),
+		ServiceNameKey:    os.Getenv("OTEL_SERVICE_FRONT_NAME"),
+		ServiceVersion:    os.Getenv("SERVICE_VERSION"),
+	}
+
+	utils.InitTracer(traceVar)
+
 	gin.SetMode(config.Cfg.Server.AppMode)
 
 	r := gin.New()
@@ -27,6 +44,7 @@ func FrontRouter() http.Handler {
 	// if config.Cfg.Server.AppMode == "debug" {
 	// 	r.Use(gin.Logger()) // gin 默认日志挺好看的
 	// }
+	r.Use(otelgin.Middleware(os.Getenv("OTEL_SERVICE_FRONT_NAME")))
 	r.Use(middleware.Logger())             // 自定义的 zap 日志中间件
 	r.Use(middleware.ErrorRecovery(false)) // 自定义错误处理中间件
 	r.Use(middleware.Cors())               // 跨域中间件

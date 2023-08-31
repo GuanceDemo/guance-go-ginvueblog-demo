@@ -3,15 +3,17 @@ package dao
 import (
 	"gin-blog/model"
 	"gin-blog/model/req"
+
+	"github.com/gin-gonic/gin"
 )
 
 type OperationLog struct{}
 
-func (*OperationLog) GetList(req req.PageQuery) ([]model.OperationLog, int64) {
+func (*OperationLog) GetList(req req.PageQuery, ctx *gin.Context) ([]model.OperationLog, int64) {
 	list := make([]model.OperationLog, 0)
 	var total int64
 
-	db := DB.Model(&model.OperationLog{})
+	db := DB.WithContext(ctx.Request.Context()).Model(&model.OperationLog{})
 	if req.Keyword != "" {
 		db = db.Where("opt_module LIKE ?", "%"+req.Keyword+"%").
 			Or("opt_desc LIKE ?", "%"+req.Keyword+"%")

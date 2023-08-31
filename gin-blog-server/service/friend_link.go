@@ -7,12 +7,14 @@ import (
 	"gin-blog/model/resp"
 	"gin-blog/utils"
 	"gin-blog/utils/r"
+
+	"github.com/gin-gonic/gin"
 )
 
 type FriendLink struct{}
 
-func (*FriendLink) GetList(req req.PageQuery) (data resp.PageResult[[]model.FriendLink]) {
-	list, total := friendLinkDao.GetList(req)
+func (*FriendLink) GetList(req req.PageQuery, ctx *gin.Context) (data resp.PageResult[[]model.FriendLink]) {
+	list, total := friendLinkDao.GetList(req, ctx)
 	return resp.PageResult[[]model.FriendLink]{
 		PageSize: req.PageSize,
 		PageNum:  req.PageNum,
@@ -21,21 +23,21 @@ func (*FriendLink) GetList(req req.PageQuery) (data resp.PageResult[[]model.Frie
 	}
 }
 
-func (*FriendLink) SaveOrUpdate(req req.SaveOrUpdateLink) (code int) {
+func (*FriendLink) SaveOrUpdate(req req.SaveOrUpdateLink, ctx *gin.Context) (code int) {
 	friendLink := utils.CopyProperties[model.FriendLink](req) // vo -> po
 	if friendLink.ID != 0 {
-		dao.Update(&friendLink)
+		dao.Update(&friendLink, ctx)
 	} else { // 新增
-		dao.Create(&friendLink)
+		dao.Create(&friendLink, ctx)
 	}
 	return r.OK
 }
 
-func (*FriendLink) Delete(ids []int) (code int) {
-	dao.Delete(model.FriendLink{}, "id in ?", ids)
+func (*FriendLink) Delete(ids []int, ctx *gin.Context) (code int) {
+	dao.Delete(model.FriendLink{}, ctx, "id in ?", ids)
 	return r.OK
 }
 
-func (*FriendLink) GetFrontList() (data []model.FriendLink) {
-	return dao.List([]model.FriendLink{}, "*", "", "")
+func (*FriendLink) GetFrontList(ctx *gin.Context) (data []model.FriendLink) {
+	return dao.List([]model.FriendLink{}, ctx, "*", "", "")
 }

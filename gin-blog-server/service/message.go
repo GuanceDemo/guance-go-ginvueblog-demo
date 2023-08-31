@@ -24,25 +24,25 @@ func (*Message) Save(c *gin.Context, req req.AddMessage) {
 	message.IpAddress = ipAddress
 	message.IpSource = ipSource
 	// 根据 blogConfig 中的配置设置默认是否审核
-	message.IsReview = blogInfoService.GetBlogConfig().IsMessageReview
+	message.IsReview = blogInfoService.GetBlogConfig(c).IsMessageReview
 
-	dao.Create(&message)
+	dao.Create(&message, c)
 }
 
-func (*Message) Delete(ids []int) (code int) {
-	dao.Delete(model.Message{}, "id in ?", ids)
+func (*Message) Delete(ids []int, ctx *gin.Context) (code int) {
+	dao.Delete(model.Message{}, ctx, "id in ?", ids)
 	return r.OK
 }
 
 // 修改审核状态
-func (*Message) UpdateReview(req req.UpdateReview) (code int) {
+func (*Message) UpdateReview(req req.UpdateReview, ctx *gin.Context) (code int) {
 	maps := map[string]any{"is_review": req.IsReview}
-	dao.UpdatesMap(&model.Message{}, maps, "id IN ?", req.Ids)
+	dao.UpdatesMap(&model.Message{}, ctx, maps, "id IN ?", req.Ids)
 	return r.OK
 }
 
-func (*Message) GetList(req req.GetMessages) resp.PageResult[[]model.Message] {
-	list, total := messageDao.GetList(req)
+func (*Message) GetList(req req.GetMessages, ctx *gin.Context) resp.PageResult[[]model.Message] {
+	list, total := messageDao.GetList(req, ctx)
 	return resp.PageResult[[]model.Message]{
 		PageSize: req.PageSize,
 		PageNum:  req.PageNum,
@@ -52,6 +52,6 @@ func (*Message) GetList(req req.GetMessages) resp.PageResult[[]model.Message] {
 }
 
 // 前台
-func (*Message) GetFrontList() []model.Message {
-	return dao.List([]model.Message{}, "*", "", "is_review = 1")
+func (*Message) GetFrontList(ctx *gin.Context) []model.Message {
+	return dao.List([]model.Message{}, ctx, "*", "", "is_review = 1")
 }

@@ -8,17 +8,19 @@ import (
 	"gin-blog/utils"
 	"gin-blog/utils/r"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Comment struct{}
 
 // TODO: reply
-func (*Comment) GetList(req req.GetComments) resp.PageResult[[]resp.CommentVo] {
+func (*Comment) GetList(req req.GetComments, ctx *gin.Context) resp.PageResult[[]resp.CommentVo] {
 	var list = make([]resp.CommentVo, 0)
 
-	total := commentDao.GetCount(req)
+	total := commentDao.GetCount(req, ctx)
 	if total != 0 {
-		list = commentDao.GetList(req)
+		list = commentDao.GetList(req, ctx)
 	}
 
 	return resp.PageResult[[]resp.CommentVo]{
@@ -29,24 +31,24 @@ func (*Comment) GetList(req req.GetComments) resp.PageResult[[]resp.CommentVo] {
 	}
 }
 
-func (*Comment) Delete(ids []int) (code int) {
-	dao.Delete(model.Comment{}, "id IN ?", ids)
+func (*Comment) Delete(ids []int, ctx *gin.Context) (code int) {
+	dao.Delete(model.Comment{}, ctx, "id IN ?", ids)
 	return r.OK
 }
 
 // 修改评论审核
-func (*Comment) UpdateReview(req req.UpdateReview) (code int) {
+func (*Comment) UpdateReview(req req.UpdateReview, ctx *gin.Context) (code int) {
 	maps := map[string]any{"is_review": req.IsReview}
-	dao.UpdatesMap(&model.Comment{}, maps, "id IN ?", req.Ids)
+	dao.UpdatesMap(&model.Comment{}, ctx, maps, "id IN ?", req.Ids)
 	return r.OK
 }
 
 // 前台
 
 // 前台文章评论列表
-func (*Comment) GetFrontList(req req.GetFrontComments) resp.PageResult[[]resp.FrontCommentVO] {
+func (*Comment) GetFrontList(req req.GetFrontComments, ctx *gin.Context) resp.PageResult[[]resp.FrontCommentVO] {
 	// 数据库查询评论列表
-	commentList, total := commentDao.GetFrontList(req)
+	commentList, total := commentDao.GetFrontList(req, ctx)
 
 	// 统计 [评论 id 列表]
 	commentIds := make([]int, 0)
@@ -55,10 +57,10 @@ func (*Comment) GetFrontList(req req.GetFrontComments) resp.PageResult[[]resp.Fr
 	}
 
 	// [文章ID : 对应点赞数]
-	likeCountMap := utils.Redis.HGetAll(KEY_COMMENT_LIKE_COUNT)
+	likeCountMap := utils.Redis.HGetAll(KEY_COMMENT_LIKE_COUNT, ctx)
 
 	// 获取回复列表
-	replyList := commentDao.GetReplyList(commentIds)
+	replyList := commentDao.GetReplyList(commentIds, ctx)
 	replyMap := make(map[int][]resp.ReplyVO)
 	for i, reply := range replyList {
 		replyList[i].LikeCount, _ = strconv.Atoi(likeCountMap[strconv.Itoa(reply.ID)])
@@ -69,7 +71,7 @@ func (*Comment) GetFrontList(req req.GetFrontComments) resp.PageResult[[]resp.Fr
 	}
 
 	// 获取评论的回复数量
-	replyCountList := commentDao.GetReplyCountListByCommentId(commentIds)
+	replyCountList := commentDao.GetReplyCountListByCommentId(commentIds, ctx)
 	replyCountMap := make(map[int]int) // [评论id : 回复数量]
 	for _, reply := range replyCountList {
 		replyCountMap[reply.CommentId] = reply.ReplyCount
@@ -94,22 +96,22 @@ func (*Comment) GetFrontList(req req.GetFrontComments) resp.PageResult[[]resp.Fr
 }
 
 // 点赞评论
-func (*Comment) SaveLike(uid, commentId int) (code int) {
+func (*Comment) SaveLike(uid, commentId int, ctx *gin.Context) (code int) {
 	// 记录某个用户已经对某个评论点过赞
 	commentLikeUserKey := KEY_COMMENT_USER_LIKE_SET + strconv.Itoa(uid)
 	// 该评论已经被记录过, 再点赞就是取消点赞
-	if utils.Redis.SIsMember(commentLikeUserKey, commentId) {
-		utils.Redis.SRem(commentLikeUserKey, commentId)
-		utils.Redis.HIncrBy(KEY_COMMENT_LIKE_COUNT, strconv.Itoa(commentId), -1)
+	if utils.Redis.SIsMember(commentLikeUserKey, ctx, commentId) {
+		utils.Redis.SRem(commentLikeUserKey, ctx, commentId)
+		utils.Redis.HIncrBy(KEY_COMMENT_LIKE_COUNT, strconv.Itoa(commentId), ctx, -1)
 	} else { // 未被记录过, 则是增加点赞
-		utils.Redis.SAdd(commentLikeUserKey, commentId)
-		utils.Redis.HIncrBy(KEY_COMMENT_LIKE_COUNT, strconv.Itoa(commentId), 1)
+		utils.Redis.SAdd(commentLikeUserKey, ctx, commentId)
+		utils.Redis.HIncrBy(KEY_COMMENT_LIKE_COUNT, strconv.Itoa(commentId), ctx, 1)
 	}
 	return r.OK
 }
 
 // 新增评论
-func (*Comment) Save(uid int, req req.SaveComment) (code int) {
+func (*Comment) Save(uid int, req req.SaveComment, ctx *gin.Context) (code int) {
 	// TODO: HTMLUtil.Filter 过滤 HTML 元素中的字符串...
 	// re := regexp2.MustCompile(`(?!<(img|p|span|h1|h2|h3|h4|h5|h6).*?>)<.*?>`, 0)
 	// src := req.Content
@@ -119,17 +121,17 @@ func (*Comment) Save(uid int, req req.SaveComment) (code int) {
 	comment := utils.CopyProperties[model.Comment](req) // vo -> po
 	comment.UserId = uid
 	// 根据 blogConfig 中的配置设置默认是否审核
-	isCommentReview := blogInfoService.GetBlogConfig().IsCommentReview
+	isCommentReview := blogInfoService.GetBlogConfig(ctx).IsCommentReview
 	comment.IsReview = &isCommentReview
-	dao.Create(&comment)
+	dao.Create(&comment, ctx)
 	// TODO: 判断是否开启邮箱通知用户
 	return r.OK
 }
 
 // 根据 [评论id] 获取 [回复列表]
-func (*Comment) GetReplyListByCommentId(id int, req req.PageQuery) []resp.ReplyVO {
-	replyList := commentDao.GetReplyListByCommentId(id, req)
-	likeCountMap := utils.Redis.HGetAll(KEY_COMMENT_LIKE_COUNT)
+func (*Comment) GetReplyListByCommentId(id int, req req.PageQuery, ctx *gin.Context) []resp.ReplyVO {
+	replyList := commentDao.GetReplyListByCommentId(id, req, ctx)
+	likeCountMap := utils.Redis.HGetAll(KEY_COMMENT_LIKE_COUNT, ctx)
 	for i, reply := range replyList {
 		replyList[i].LikeCount, _ = strconv.Atoi(likeCountMap[strconv.Itoa(reply.ID)])
 	}

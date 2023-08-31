@@ -15,6 +15,7 @@ var Logger *zap.Logger
 
 func InitLogger() {
 	// 生成日志文件目录
+
 	if ok, _ := PathExists(config.Cfg.Zap.Directory); !ok {
 		log.Printf("create %v directory\n", config.Cfg.Zap.Directory)
 		_ = os.Mkdir(config.Cfg.Zap.Directory, os.ModePerm)

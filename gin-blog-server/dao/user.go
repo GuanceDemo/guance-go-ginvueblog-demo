@@ -3,13 +3,15 @@ package dao
 import (
 	"gin-blog/model/req"
 	"gin-blog/model/resp"
+
+	"github.com/gin-gonic/gin"
 )
 
 type User struct{}
 
-func (*User) GetCount(req req.GetUsers) int64 {
+func (*User) GetCount(req req.GetUsers, ctx *gin.Context) int64 {
 	var count int64
-	tx := DB.Select("COUNT(1)").Table("user_auth ua").
+	tx := DB.WithContext(ctx.Request.Context()).Select("COUNT(1)").Table("user_auth ua").
 		Joins("LEFT JOIN user_info ui ON ua.user_info_id = ui.id")
 	if req.LoginType != 0 {
 		tx = tx.Where("login_type = ?", req.LoginType)
@@ -21,10 +23,10 @@ func (*User) GetCount(req req.GetUsers) int64 {
 	return count
 }
 
-func (*User) GetList(req req.GetUsers) []resp.UserVO {
+func (*User) GetList(req req.GetUsers, ctx *gin.Context) []resp.UserVO {
 	var list = make([]resp.UserVO, 0)
 
-	table := DB.
+	table := DB.WithContext(ctx.Request.Context()).
 		Select("id, avatar, nickname, is_disable").Table("user_info")
 	if req.LoginType != 0 {
 		table = table.Where("id in (SELECT user_info_id FROM user_auth WHERE login_type = ?)", req.LoginType)

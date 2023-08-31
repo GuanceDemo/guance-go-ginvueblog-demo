@@ -9,5 +9,5 @@ import (
 type Tag struct{}
 
 func (*Tag) GetFrontList(c *gin.Context) {
-	r.SuccessData(c, tagService.GetFrontList())
+	r.SuccessData(c, tagService.GetFrontList(c))
 }

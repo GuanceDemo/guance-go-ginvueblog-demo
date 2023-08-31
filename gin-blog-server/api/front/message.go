@@ -12,7 +12,7 @@ type Message struct{}
 
 // 查询列表(前台)
 func (*Message) GetFrontList(c *gin.Context) {
-	r.SuccessData(c, messageService.GetFrontList())
+	r.SuccessData(c, messageService.GetFrontList(c))
 }
 
 // 留言不能编辑, 只能新增

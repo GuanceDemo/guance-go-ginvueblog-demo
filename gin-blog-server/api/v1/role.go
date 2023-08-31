@@ -12,19 +12,19 @@ type Role struct{}
 
 // 获取角色选项
 func (*Role) GetOption(c *gin.Context) {
-	r.SuccessData(c, roleService.GetOption())
+	r.SuccessData(c, roleService.GetOption(c))
 }
 
 func (*Role) GetTreeList(c *gin.Context) {
-	r.SuccessData(c, roleService.GetTreeList(utils.BindPageQuery(c)))
+	r.SuccessData(c, roleService.GetTreeList(utils.BindPageQuery(c), c))
 }
 
 func (*Role) SaveOrUpdate(c *gin.Context) {
-	r.SendCode(c, roleService.SaveOrUpdate(utils.BindJson[req.SaveOrUpdateRole](c)))
+	r.SendCode(c, roleService.SaveOrUpdate(utils.BindJson[req.SaveOrUpdateRole](c), c))
 }
 
 func (*Role) Delete(c *gin.Context) {
-	r.SendCode(c, roleService.Delete(utils.BindJson[[]int](c)))
+	r.SendCode(c, roleService.Delete(utils.BindJson[[]int](c), c))
 }
 
 // TODO: 修改角色禁用

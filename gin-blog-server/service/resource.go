@@ -7,23 +7,25 @@ import (
 	"gin-blog/model/resp"
 	"gin-blog/utils"
 	"gin-blog/utils/r"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Resource struct{}
 
 // 获取资源列表(树形)
-func (s *Resource) GetTreeList(req req.PageQuery) []resp.ResourceVo {
+func (s *Resource) GetTreeList(req req.PageQuery, ctx *gin.Context) []resp.ResourceVo {
 	// 根据关键字查询出[资源列表](非树形)
-	resources := resourceDao.GetListByKeyword(req.Keyword)
+	resources := resourceDao.GetListByKeyword(req.Keyword, ctx)
 	// []resource -> []resourceVo
 	return s.resources2ResourceVos(resources)
 }
 
 // 获取数据选项(树形)
-func (s *Resource) GetOptionList() []resp.TreeOptionVo {
+func (s *Resource) GetOptionList(ctx *gin.Context) []resp.TreeOptionVo {
 	resList := make([]resp.TreeOptionVo, 0)
 
-	resources := dao.List([]model.Resource{}, "id, name, parent_id", "", "is_anonymous = ?", 0)
+	resources := dao.List([]model.Resource{}, ctx, "id, name, parent_id", "", "is_anonymous = ?", 0)
 	parentList := getModuleList(resources)
 	childrenMap := getChildrenMap(resources)
 	for _, item := range parentList {
@@ -45,16 +47,16 @@ func (s *Resource) GetOptionList() []resp.TreeOptionVo {
 }
 
 // 新增或编辑资源, 关联更新 casbin_rule 中数据
-func (*Resource) SaveOrUpdate(req req.SaveOrUpdateResource) (code int) {
+func (*Resource) SaveOrUpdate(req req.SaveOrUpdateResource, ctx *gin.Context) (code int) {
 	// 检查该资源名已经存在
-	existByName := dao.GetOne(model.Resource{}, "name", req.Name)
+	existByName := dao.GetOne(model.Resource{}, "name", ctx, req.Name)
 	if existByName.ID != 0 && existByName.ID != req.ID {
 		return r.ERROR_RESOURCE_NAME_EXIST
 	}
 
 	if req.ID != 0 { // 更新
-		oldResource := dao.GetOne(model.Resource{}, "id", req.ID)
-		dao.UpdatesMap(&model.Resource{}, utils.Struct2Map(req), "id", req.ID) // map 可以更新零值
+		oldResource := dao.GetOne(model.Resource{}, "id", ctx, req.ID)
+		dao.UpdatesMap(&model.Resource{}, ctx, utils.Struct2Map(req), "id", req.ID) // map 可以更新零值
 		// ! 关联更新 casbin_rule 中的信息
 		utils.Casbin.UpdatePolicy(
 			[]string{"", oldResource.Url, oldResource.RequestMethod},
@@ -62,23 +64,23 @@ func (*Resource) SaveOrUpdate(req req.SaveOrUpdateResource) (code int) {
 		)
 	} else { // 新增
 		data := utils.CopyProperties[model.Resource](req)
-		dao.Create(&data)
+		dao.Create(&data, ctx)
 		// * 解决前端的 BUG: 级联选中某个父节点后, 新增的子节点默认会展示被选中, 实际上未被选中值
 		// * 解决方案: 新增子节点后, 删除该节点对应的父节点与角色的关联关系
-		dao.Delete(model.RoleResource{}, "resource_id", data.ParentId)
+		dao.Delete(model.RoleResource{}, ctx, "resource_id", data.ParentId)
 	}
 	return r.OK
 }
 
 // 编辑资源的匿名访问, 关联更新 casbin_rule 中数据
-func (*Resource) UpdateAnonymous(req req.UpdateAnonymous) (code int) {
+func (*Resource) UpdateAnonymous(req req.UpdateAnonymous, ctx *gin.Context) (code int) {
 	// 检查要更新的资源是否存在
-	existById := dao.GetOne(model.Resource{}, "id", req.ID)
+	existById := dao.GetOne(model.Resource{}, "id", ctx, req.ID)
 	if existById.ID == 0 {
 		return r.ERROR_RESOURCE_NOT_EXIST
 	}
 	// 只更新 is_anonymous 字段
-	dao.UpdatesMap(&model.Resource{}, map[string]any{"is_anonymous": *req.IsAnonymous}, "id", req.ID)
+	dao.UpdatesMap(&model.Resource{}, ctx, map[string]any{"is_anonymous": *req.IsAnonymous}, "id", req.ID)
 	// ! 关联处理 casbin_rule 中的 isAnonymous
 	if *req.IsAnonymous == 0 {
 		// fmt.Println("删除 casbin_rule anonymous")
@@ -91,25 +93,25 @@ func (*Resource) UpdateAnonymous(req req.UpdateAnonymous) (code int) {
 
 // 删除资源, 关联删除 casbin_rule 中数据
 // TODO: 考虑删除模块后, 其子资源怎么办? 目前做法是有子资源无法删除
-func (*Resource) Delete(resourceId int) (code int) {
+func (*Resource) Delete(resourceId int, ctx *gin.Context) (code int) {
 	// 检查要删除的资源是否存在
-	existResourceById := dao.GetOne(model.Resource{}, "id", resourceId)
+	existResourceById := dao.GetOne(model.Resource{}, "id", ctx, resourceId)
 	if existResourceById.ID == 0 {
 		return r.ERROR_RESOURCE_NOT_EXIST
 	}
 	// * 检查 role_resource 下是否有数据
-	existRoleResource := dao.GetOne(model.RoleResource{}, "resource_id", resourceId)
+	existRoleResource := dao.GetOne(model.RoleResource{}, "resource_id", ctx, resourceId)
 	if existRoleResource.ResourceId != 0 {
 		return r.ERROR_RESOURCE_USED_BY_ROLE
 	}
 	// * 如果该 resource 是模块, 检查其是否有子资源
 	if existResourceById.ParentId == 0 {
-		if dao.Count(model.Resource{}, "parent_id = ?", resourceId) != 0 {
+		if dao.Count(model.Resource{}, ctx, "parent_id = ?", resourceId) != 0 {
 			return r.ERROR_RESOURCE_HAS_CHILDREN
 		}
 	}
 	// 删除资源
-	dao.Delete(model.Resource{}, "id", resourceId)
+	dao.Delete(model.Resource{}, ctx, "id", resourceId)
 	// ! 关联删除 casbin_rule 中的数据
 	// 因为前面检查过 role_resource 下是否有数据, 理论上来说不会真正到关联删除这步
 	if existResourceById.Url != "" && existResourceById.RequestMethod != "" {

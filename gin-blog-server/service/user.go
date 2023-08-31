@@ -23,9 +23,9 @@ import (
 type User struct{}
 
 // 登录
-func (*User) Login(c *gin.Context, username, password string) (loginVo resp.LoginVO, code int) {
+func (*User) Login(c *gin.Context, username, password string, ctx *gin.Context) (loginVo resp.LoginVO, code int) {
 	// 检查用户是否存在
-	userAuth := dao.GetOne(model.UserAuth{}, "username", username)
+	userAuth := dao.GetOne(model.UserAuth{}, "username", ctx, username)
 	if userAuth.ID == 0 {
 		return loginVo, r.ERROR_USER_NOT_EXIST
 	}
@@ -52,14 +52,14 @@ func (*User) Login(c *gin.Context, username, password string) (loginVo resp.Logi
 		IpAddress:     userDetailDTO.IpAddress,
 		IpSource:      userDetailDTO.IpSource,
 		LastLoginTime: userDetailDTO.LastLoginTime,
-	}, "ip_address", "ip_source", "last_login_time")
+	}, ctx, "ip_address", "ip_source", "last_login_time")
 
 	// 保存用户信息到 Session 和 Redis 中
 	session := sessions.Default(c)
 	// ! session 中只能存储字符串
 	sessionInfoStr := utils.Json.Marshal(dto.SessionInfo{UserDetailDTO: userDetailDTO})
 	session.Set(KEY_USER+uuid, sessionInfoStr) // ! 确实设置到 reids 中, 但是获取不到
-	utils.Redis.Set(KEY_USER+uuid, sessionInfoStr, time.Duration(config.Cfg.Session.MaxAge)*time.Second)
+	utils.Redis.Set(KEY_USER+uuid, sessionInfoStr, time.Duration(config.Cfg.Session.MaxAge)*time.Second, c)
 	// fmt.Println("login: ", KEY_USER+uuid)
 	session.Save()
 
@@ -72,18 +72,18 @@ func (*User) Logout(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Delete(KEY_USER + uuid) //? FIXME: 删除后 redis 还会有一条记录?
 	session.Save()
-	utils.Redis.Del(KEY_USER + uuid) // 删除 redis 中缓存
+	utils.Redis.Del(KEY_USER+uuid, c) // 删除 redis 中缓存
 }
 
 // 用户注册
-func (*User) Register(req req.Register) (code int) {
+func (*User) Register(req req.Register, ctx *gin.Context) (code int) {
 	// 检查验证码是否正确
-	if req.Code != utils.Redis.GetVal(KEY_CODE+req.Username) {
+	if req.Code != utils.Redis.GetVal(KEY_CODE+req.Username, ctx) {
 		return r.ERROR_VERIFICATION_CODE
 	}
 
 	// 检查用户名已存在, 则该账号已经注册过
-	if exist := checkUserExistByName(req.Username); exist {
+	if exist := checkUserExistByName(req.Username, ctx); exist {
 		return r.ERROR_USER_NAME_USED
 	}
 
@@ -91,28 +91,28 @@ func (*User) Register(req req.Register) (code int) {
 		Email:    req.Username,
 		Nickname: "用户" + req.Username,
 		// blogConfig 中配置的默认用户头像
-		Avatar: blogInfoService.GetBlogConfig().UserAvatar,
+		Avatar: blogInfoService.GetBlogConfig(ctx).UserAvatar,
 	}
-	dao.Create(&userInfo)
+	dao.Create(&userInfo, ctx)
 	// 设置用户默认角色
 	dao.Create(&model.UserRole{
 		UserId: userInfo.ID,
 		RoleId: 3, // 默认角色是 "测试"
-	})
+	}, ctx)
 	dao.Create(&model.UserAuth{
 		UserInfoId:    userInfo.ID,
 		Username:      req.Username,
 		Password:      utils.Encryptor.BcryptHash(req.Password),
 		LoginType:     1,
 		LastLoginTime: time.Now(), // 注册时会更新 "上次登录时间"
-	})
+	}, ctx)
 	return r.OK
 }
 
 // 更新用户邮箱信息
-func (*User) UpdateEmail(userInfoId int, req req.UpdateEmail) (code int) {
+func (*User) UpdateEmail(userInfoId int, req req.UpdateEmail, c *gin.Context) (code int) {
 	// 检查验证码是否正确
-	if req.Code != utils.Redis.GetVal(KEY_CODE+req.Email) {
+	if req.Code != utils.Redis.GetVal(KEY_CODE+req.Email, c) {
 		return r.ERROR_VERIFICATION_CODE
 	}
 
@@ -123,13 +123,13 @@ func (*User) UpdateEmail(userInfoId int, req req.UpdateEmail) (code int) {
 
 // 查询当前在线用户
 // TODO: 分页 + 条件搜索
-func (*User) GetOnlineList(req req.PageQuery) resp.PageResult[[]resp.UserOnline] {
+func (*User) GetOnlineList(req req.PageQuery, c *gin.Context) resp.PageResult[[]resp.UserOnline] {
 	onlineList := make([]resp.UserOnline, 0)
 
-	keys := utils.Redis.Keys(KEY_USER + "*")
+	keys := utils.Redis.Keys(KEY_USER+"*", c)
 	for _, key := range keys {
 		var sessionInfo dto.SessionInfo
-		utils.Json.Unmarshal(utils.Redis.GetVal(key), &sessionInfo)
+		utils.Json.Unmarshal(utils.Redis.GetVal(key, c), &sessionInfo)
 
 		// 查询关键字不为空, 且不满足查询条件
 		if req.Keyword != "" && !strings.Contains(sessionInfo.Nickname, req.Keyword) {
@@ -152,43 +152,43 @@ func (*User) GetOnlineList(req req.PageQuery) resp.PageResult[[]resp.UserOnline]
 }
 
 // 强制用户离线
-func (*User) ForceOffline(req req.ForceOfflineUser) (code int) {
+func (*User) ForceOffline(req req.ForceOfflineUser, c *gin.Context) (code int) {
 	// TODO: 不能让自己离线? 目前设定是可以的...
 	// if userInfoId == req.UserIndoId {
 	// }
 
 	uuid := utils.Encryptor.MD5(req.IpAddress + req.Browser + req.OS)
 	var sessionInfo dto.SessionInfo
-	utils.Json.Unmarshal(utils.Redis.GetVal(KEY_USER+uuid), &sessionInfo)
+	utils.Json.Unmarshal(utils.Redis.GetVal(KEY_USER+uuid, c), &sessionInfo)
 	sessionInfo.IsOffline = 1 // *
-	utils.Redis.Del(KEY_USER + uuid)
+	utils.Redis.Del(KEY_USER+uuid, c)
 	// ? 这里设置强制离线后 redis 中存储的 delete:xxx 时间和 Token 过期时间一致
-	utils.Redis.Set(KEY_DELETE+uuid, utils.Json.Marshal(sessionInfo), time.Duration(config.Cfg.JWT.Expire)*time.Hour)
+	utils.Redis.Set(KEY_DELETE+uuid, utils.Json.Marshal(sessionInfo), time.Duration(config.Cfg.JWT.Expire)*time.Hour, c)
 	return r.OK
 }
 
 // TODO: 用户区域分布 GetUserAreas, statiscalUserArea
 
-func (*User) UpdateCurrent(current req.UpdateCurrentUser) (code int) {
+func (*User) UpdateCurrent(current req.UpdateCurrentUser, ctx *gin.Context) (code int) {
 	user := utils.CopyProperties[model.UserInfo](current)
-	dao.Update(&user, "nickname", "intro", "website", "avatar", "email")
+	dao.Update(&user, ctx, "nickname", "intro", "website", "avatar", "email")
 	return r.OK
 }
 
 // TODO: 优化
-func (*User) GetInfo(id int) resp.UserInfoVO {
+func (*User) GetInfo(id int, ctx *gin.Context) resp.UserInfoVO {
 	var userInfo model.UserInfo
-	dao.GetOne(&userInfo, "id", id)
+	dao.GetOne(&userInfo, "id", ctx, id)
 
 	data := utils.CopyProperties[resp.UserInfoVO](userInfo)
-	data.ArticleLikeSet = utils.Redis.SMembers(KEY_ARTICLE_USER_LIKE_SET + strconv.Itoa(id))
-	data.CommentLikeSet = utils.Redis.SMembers(KEY_COMMENT_USER_LIKE_SET + strconv.Itoa(id))
+	data.ArticleLikeSet = utils.Redis.SMembers(KEY_ARTICLE_USER_LIKE_SET+strconv.Itoa(id), ctx)
+	data.CommentLikeSet = utils.Redis.SMembers(KEY_COMMENT_USER_LIKE_SET+strconv.Itoa(id), ctx)
 	return data
 }
 
-func (*User) GetList(req req.GetUsers) resp.PageResult[[]resp.UserVO] {
-	count := userDao.GetCount(req)
-	list := userDao.GetList(req)
+func (*User) GetList(req req.GetUsers, ctx *gin.Context) resp.PageResult[[]resp.UserVO] {
+	count := userDao.GetCount(req, ctx)
+	list := userDao.GetList(req, ctx)
 	return resp.PageResult[[]resp.UserVO]{
 		PageSize: req.PageSize,
 		PageNum:  req.PageNum,
@@ -197,14 +197,14 @@ func (*User) GetList(req req.GetUsers) resp.PageResult[[]resp.UserVO] {
 	}
 }
 
-func (*User) Update(req req.UpdateUser) int {
+func (*User) Update(req req.UpdateUser, ctx *gin.Context) int {
 	userInfo := model.UserInfo{
 		Universal: model.Universal{ID: req.UserInfoId},
 		Nickname:  req.Nickname,
 	}
-	dao.Update(&userInfo)
+	dao.Update(&userInfo, ctx)
 	// 清空 user_role 关系
-	dao.Delete(model.UserRole{}, "user_id = ?", req.UserInfoId)
+	dao.Delete(model.UserRole{}, ctx, "user_id = ?", req.UserInfoId)
 	// 要更新的 user_role 列表
 	var userRoles []model.UserRole
 	for _, id := range req.RoleIds {
@@ -213,28 +213,28 @@ func (*User) Update(req req.UpdateUser) int {
 			UserId: req.UserInfoId,
 		})
 	}
-	dao.Create(&userRoles)
+	dao.Create(&userRoles, ctx)
 	return r.OK
 }
 
 // 修改普通用户密码, 不需要旧密码
-func (*User) UpdatePassword(req req.UpdatePassword) int {
+func (*User) UpdatePassword(req req.UpdatePassword, ctx *gin.Context) int {
 	// 用户名不存在
-	if exist := checkUserExistByName(req.Username); !exist {
+	if exist := checkUserExistByName(req.Username, ctx); !exist {
 		return r.ERROR_USER_NOT_EXIST
 	}
 
 	m := map[string]any{"password": utils.Encryptor.BcryptHash(req.Password)}
-	dao.UpdatesMap(&model.UserAuth{}, m, "username = ?", req.Username)
+	dao.UpdatesMap(&model.UserAuth{}, ctx, m, "username = ?", req.Username)
 	return r.OK
 }
 
 // 修改管理员密码, 需要旧密码验证
-func (*User) UpdateCurrentPassword(req req.UpdateAdminPassword, id int) int {
-	user := dao.GetOne(model.UserAuth{}, "id", id)
+func (*User) UpdateCurrentPassword(req req.UpdateAdminPassword, id int, ctx *gin.Context) int {
+	user := dao.GetOne(model.UserAuth{}, "id", ctx, id)
 	if !user.IsEmpty() && utils.Encryptor.BcryptCheck(req.OldPassword, user.Password) {
 		user.Password = utils.Encryptor.BcryptHash(req.NewPassword)
-		dao.Update(&user, "password")
+		dao.Update(&user, ctx, "password")
 		return r.OK
 	} else {
 		return r.ERROR_OLD_PASSWORD
@@ -242,14 +242,14 @@ func (*User) UpdateCurrentPassword(req req.UpdateAdminPassword, id int) int {
 }
 
 // 更新用户禁用
-func (*User) UpdateDisable(id, isDisable int) {
-	dao.UpdatesMap(&model.UserInfo{}, map[string]any{"is_disable": isDisable}, "id", id)
+func (*User) UpdateDisable(id, isDisable int, ctx *gin.Context) {
+	dao.UpdatesMap(&model.UserInfo{}, ctx, map[string]any{"is_disable": isDisable}, "id", id)
 }
 
 // 发送验证码
-func (*User) SendCode(email string) (code int) {
+func (*User) SendCode(email string, c *gin.Context) (code int) {
 	// 已经发送验证码且未过期
-	if utils.Redis.GetVal(KEY_CODE+email) != "" {
+	if utils.Redis.GetVal(KEY_CODE+email, c) != "" {
 		return r.ERROR_EMAIL_HAS_SEND
 	}
 
@@ -276,13 +276,13 @@ func (*User) SendCode(email string) (code int) {
 	}
 
 	// 将验证码存储到 Redis 中
-	utils.Redis.Set(KEY_CODE+email, validateCode, time.Duration(expireTime)*time.Minute)
+	utils.Redis.Set(KEY_CODE+email, validateCode, time.Duration(expireTime)*time.Minute, c)
 	return r.OK
 }
 
 // 检查用户名是否存在
-func checkUserExistByName(username string) bool {
-	existUser := dao.GetOne(model.UserAuth{}, "username = ?", username)
+func checkUserExistByName(username string, ctx *gin.Context) bool {
+	existUser := dao.GetOne(model.UserAuth{}, "username = ?", ctx, username)
 	return existUser.ID != 0
 }
 
@@ -299,15 +299,15 @@ func convertUserDetailDTO(userAuth model.UserAuth, c *gin.Context) dto.UserDetai
 	}
 
 	// 获取用户详细信息
-	userInfo := dao.GetOne(&model.UserInfo{}, "id", userAuth.ID)
+	userInfo := dao.GetOne(&model.UserInfo{}, "id", c, userAuth.ID)
 	// FIXME: 获取该用户对应的角色, 没有角色默认是 "test"
-	roleLabels := roleDao.GetLabelsByUserInfoId(userInfo.ID)
+	roleLabels := roleDao.GetLabelsByUserInfoId(userInfo.ID, c)
 	if len(roleLabels) == 0 {
 		roleLabels = append(roleLabels, "test")
 	}
 	// 用户点赞 Set
-	articleLikeSet := utils.Redis.SMembers(KEY_ARTICLE_USER_LIKE_SET + strconv.Itoa(userInfo.ID))
-	commentLikeSet := utils.Redis.SMembers(KEY_COMMENT_USER_LIKE_SET + strconv.Itoa(userInfo.ID))
+	articleLikeSet := utils.Redis.SMembers(KEY_ARTICLE_USER_LIKE_SET+strconv.Itoa(userInfo.ID), c)
+	commentLikeSet := utils.Redis.SMembers(KEY_COMMENT_USER_LIKE_SET+strconv.Itoa(userInfo.ID), c)
 
 	return dto.UserDetailDTO{
 		LoginVO: resp.LoginVO{

@@ -12,18 +12,18 @@ type UserAuth struct{}
 
 // 根据 Token 获取用户信息
 func (*User) GetInfo(c *gin.Context) {
-	r.SuccessData(c, userService.GetInfo(utils.GetFromContext[int](c, "user_info_id")))
+	r.SuccessData(c, userService.GetInfo(utils.GetFromContext[int](c, "user_info_id"), c))
 }
 
 // 用户注册
 func (*UserAuth) Register(c *gin.Context) {
-	r.SendCode(c, userService.Register(utils.BindValidJson[req.Register](c)))
+	r.SendCode(c, userService.Register(utils.BindValidJson[req.Register](c), c))
 }
 
 // 登录
 func (*UserAuth) Login(c *gin.Context) {
 	loginReq := utils.BindValidJson[req.Login](c)
-	loginVo, code := userService.Login(c, loginReq.Username, loginReq.Password)
+	loginVo, code := userService.Login(c, loginReq.Username, loginReq.Password, c)
 	r.SendData(c, code, loginVo)
 }
 
@@ -35,7 +35,7 @@ func (*UserAuth) Logout(c *gin.Context) {
 
 // 发送邮件验证码
 func (*UserAuth) SendCode(c *gin.Context) {
-	r.SendCode(c, userService.SendCode(c.Query("email")))
+	r.SendCode(c, userService.SendCode(c.Query("email"), c))
 }
 
 // TODO: refresh token

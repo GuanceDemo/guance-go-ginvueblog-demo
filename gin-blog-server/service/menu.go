@@ -8,14 +8,16 @@ import (
 	"gin-blog/utils"
 	"gin-blog/utils/r"
 	"sort"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Menu struct{}
 
 // 获取某个用户的菜单列表(树形)
-func (s *Menu) GetUserMenuTree(userInfoId int) []resp.UserMenuVo {
+func (s *Menu) GetUserMenuTree(userInfoId int, ctx *gin.Context) []resp.UserMenuVo {
 	// 从数据库查出用户菜单列表(非树形)
-	menuList := menuDao.GetMenusByUserInfoId(userInfoId)
+	menuList := menuDao.GetMenusByUserInfoId(userInfoId, ctx)
 	// 过滤出一级菜单 (parent_id = 0)
 	firstLevelMenuList := s.getFirstLevelMenus(menuList)
 	// 获取存储子菜单的 map
@@ -25,9 +27,9 @@ func (s *Menu) GetUserMenuTree(userInfoId int) []resp.UserMenuVo {
 }
 
 // 获取菜单列表(树形)
-func (s *Menu) GetTreeList(req req.PageQuery) []resp.MenuVo {
+func (s *Menu) GetTreeList(req req.PageQuery, ctx *gin.Context) []resp.MenuVo {
 	// 从数据库中查询出菜单列表(非树形)
-	menuList := menuDao.GetMenus(req)
+	menuList := menuDao.GetMenus(req, ctx)
 	// 过滤出一级菜单 (parent_id = 0)
 	firstLevelMenuList := s.getFirstLevelMenus(menuList)
 	// 获取存储子菜单的 map
@@ -37,10 +39,10 @@ func (s *Menu) GetTreeList(req req.PageQuery) []resp.MenuVo {
 }
 
 // 获取菜单选项列表(树形)
-func (s *Menu) GetOptionList() []resp.TreeOptionVo {
+func (s *Menu) GetOptionList(ctx *gin.Context) []resp.TreeOptionVo {
 	var resList = make([]resp.TreeOptionVo, 0)
 
-	menus := dao.List([]model.Menu{}, "id, name, parent_id, order_num", "", "")
+	menus := dao.List([]model.Menu{}, ctx, "id, name, parent_id, order_num", "", "")
 	firstLevelMenus := s.getFirstLevelMenus(menus)
 	childrenMap := s.getMenuChildrenMap(menus)
 
@@ -65,41 +67,41 @@ func (s *Menu) GetOptionList() []resp.TreeOptionVo {
 	return resList
 }
 
-func (*Menu) SaveOrUpdate(req req.SaveOrUpdateMenu) (code int) {
+func (*Menu) SaveOrUpdate(req req.SaveOrUpdateMenu, ctx *gin.Context) (code int) {
 	// 检查菜单名已经存在
-	existByName := dao.GetOne(model.Menu{}, "name", req.Name)
+	existByName := dao.GetOne(model.Menu{}, "name", ctx, req.Name)
 	if existByName.ID != 0 && existByName.ID != req.ID {
 		return r.ERROR_MENU_NAME_EXIST
 	}
 	if req.ID != 0 {
-		dao.UpdatesMap(&model.Menu{}, utils.Struct2Map(req), "id", req.ID)
+		dao.UpdatesMap(&model.Menu{}, ctx, utils.Struct2Map(req), "id", req.ID)
 	} else {
 		data := utils.CopyProperties[model.Menu](req)
-		dao.Create(&data)
+		dao.Create(&data, ctx)
 	}
 	return r.OK
 }
 
 // 删除菜单
-func (*Menu) Delete(menuId int) (code int) {
+func (*Menu) Delete(menuId int, ctx *gin.Context) (code int) {
 	// 检查要删除的菜单是否存在
-	existMenuById := dao.GetOne(model.Menu{}, "id", menuId)
+	existMenuById := dao.GetOne(model.Menu{}, "id", ctx, menuId)
 	if existMenuById.ID == 0 {
 		return r.ERROR_MENU_NAME_EXIST
 	}
 	// * 检查 role_menu 下是否有数据
-	existRoleMenu := dao.GetOne(model.RoleMenu{}, "menu_id", menuId)
+	existRoleMenu := dao.GetOne(model.RoleMenu{}, "menu_id", ctx, menuId)
 	if existRoleMenu.MenuId != 0 {
 		return r.ERROR_MENU_USED_BY_ROLE
 	}
 	// * 如果是一级菜单, 检查其是否有子菜单
 	if existMenuById.ParentId == 0 {
-		if dao.Count(model.Menu{}, "parent_id", menuId) != 0 {
+		if dao.Count(model.Menu{}, ctx, "parent_id", menuId) != 0 {
 			return r.ERROR_MENU_HAS_CHILDREN
 		}
 	}
 	// 删除菜单
-	dao.Delete(model.Menu{}, "id", menuId)
+	dao.Delete(model.Menu{}, ctx, "id", menuId)
 	return r.OK
 }
 

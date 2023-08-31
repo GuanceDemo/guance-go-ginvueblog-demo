@@ -5,6 +5,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel/trace"
+
 	"go.uber.org/zap"
 )
 
@@ -14,10 +16,12 @@ func Logger() gin.HandlerFunc {
 		start := time.Now()
 		c.Next()
 		cost := time.Since(start)
+
 		utils.Logger.Info(c.Request.URL.Path,
 			zap.Int("status", c.Writer.Status()),
 			zap.String("method", c.Request.Method),
-			// zap.String("path", c.Request.URL.Path),
+			zap.String("trace_id", trace.SpanFromContext(c.Request.Context()).SpanContext().TraceID().String()),
+			zap.String("query", c.Request.URL.RawQuery),
 			zap.String("query", c.Request.URL.RawQuery),
 			zap.String("ip", c.ClientIP()),
 			zap.String("user-agent", c.Request.UserAgent()),

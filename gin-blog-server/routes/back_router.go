@@ -21,7 +21,7 @@ func BackRouter() http.Handler {
 	traceVar := &utils.TraceVar{
 		CollectorEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		CollectorURLPath:  os.Getenv("OTEL_EXPORTER_OTLP_URL_PATH"),
-		ServiceNameKey:    os.Getenv("SERVICE_NAME"),
+		ServiceNameKey:    os.Getenv("OTEL_SERVICE_ADMIN_NAME"),
 		ServiceVersion:    os.Getenv("SERVICE_VERSION"),
 	}
 
@@ -37,7 +37,7 @@ func BackRouter() http.Handler {
 		r.StaticFS("/dir", http.Dir("./public")) // 将 public 目录内的文件列举展示
 	}
 
-	r.Use(otelgin.Middleware(os.Getenv("SERVICE_NAME")))
+	r.Use(otelgin.Middleware(os.Getenv("OTEL_SERVICE_ADMIN_NAME")))
 	r.Use(middleware.Logger())             // 自定义的 zap 日志中间件
 	r.Use(middleware.ErrorRecovery(false)) // 自定义错误处理中间件
 	r.Use(middleware.Cors())               // 跨域中间件

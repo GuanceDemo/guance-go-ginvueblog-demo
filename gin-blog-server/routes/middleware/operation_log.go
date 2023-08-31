@@ -97,7 +97,7 @@ func OperationLog() gin.HandlerFunc {
 			c.Next()
 			operationLog.ResponseData = blw.body.String() // 从缓存中获取响应体内容
 			// fmt.Println("操作日志记录: ", operationLog)
-			dao.Create(&operationLog) // 写入数据库
+			dao.Create(&operationLog, c) // 写入数据库
 		} else {
 			c.Next()
 		}

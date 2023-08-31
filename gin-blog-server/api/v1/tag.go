@@ -12,25 +12,25 @@ type Tag struct{}
 
 // 新增/编辑 标签
 func (*Tag) SaveOrUpdate(c *gin.Context) {
-	r.SendCode(c, tagService.SaveOrUpdate(utils.BindValidJson[req.AddOrEditTag](c)))
+	r.SendCode(c, tagService.SaveOrUpdate(utils.BindValidJson[req.AddOrEditTag](c), c))
 }
 
 // 删除(批量)
 func (*Tag) Delete(c *gin.Context) {
-	r.SendCode(c, tagService.Delete(utils.BindJson[[]int](c)))
+	r.SendCode(c, tagService.Delete(utils.BindJson[[]int](c), c))
 }
 
 // 获取下拉框选项数据
 func (*Tag) GetOption(c *gin.Context) {
-	r.SuccessData(c, tagService.GetOption())
+	r.SuccessData(c, tagService.GetOption(c))
 }
 
 // 条件标签列表(后台)
 func (*Tag) GetList(c *gin.Context) {
-	r.SuccessData(c, tagService.GetList(utils.BindPageQuery(c)))
+	r.SuccessData(c, tagService.GetList(utils.BindPageQuery(c), c))
 }
 
 // 查询标签列表(前台)
 func (*Tag) GetFrontList(c *gin.Context) {
-	r.SuccessData(c, tagService.GetFrontList())
+	r.SuccessData(c, tagService.GetFrontList(c))
 }

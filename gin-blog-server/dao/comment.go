@@ -5,6 +5,8 @@ import (
 	"gin-blog/model/dto"
 	"gin-blog/model/req"
 	"gin-blog/model/resp"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Comment struct{}
@@ -13,9 +15,9 @@ type Comment struct{}
 func (*Comment) Save(c model.Comment) {
 }
 
-func (*Comment) GetCount(req req.GetComments) int64 {
+func (*Comment) GetCount(req req.GetComments, ctx *gin.Context) int64 {
 	var count int64
-	tx := DB.Select("COUNT(1)").Table("comment c").
+	tx := DB.WithContext(ctx.Request.Context()).Select("COUNT(1)").Table("comment c").
 		Joins("LEFT JOIN user_info ui ON c.user_id = ui.id")
 	if req.Type != 0 {
 		tx = tx.Where("c.type = ?", req.Type)
@@ -30,9 +32,9 @@ func (*Comment) GetCount(req req.GetComments) int64 {
 	return count
 }
 
-func (*Comment) GetList(req req.GetComments) []resp.CommentVo {
+func (*Comment) GetList(req req.GetComments, ctx *gin.Context) []resp.CommentVo {
 	list := make([]resp.CommentVo, 0)
-	tx := DB.
+	tx := DB.WithContext(ctx.Request.Context()).
 		Select("c.id, u1.avatar, u1.nickname, u2.nickname reply_nickname, a.title article_title, c.content, c.type, c.created_at, c.is_review").
 		Table("comment c").
 		Joins("LEFT JOIN article a ON c.topic_id = a.id").
@@ -52,11 +54,11 @@ func (*Comment) GetList(req req.GetComments) []resp.CommentVo {
 }
 
 // 获取前台评论列表
-func (*Comment) GetFrontList(req req.GetFrontComments) ([]resp.FrontCommentVO, int64) {
+func (*Comment) GetFrontList(req req.GetFrontComments, ctx *gin.Context) ([]resp.FrontCommentVO, int64) {
 	list := make([]resp.FrontCommentVO, 0)
 	var total int64
 
-	tx := DB.
+	tx := DB.WithContext(ctx.Request.Context()).
 		Select("u.nickname, u.avatar, u.website, c.id, c.user_id, c.content, c.created_at").
 		Table("comment c").
 		Joins("LEFT JOIN user_info u ON c.user_id = u.id").
@@ -72,9 +74,9 @@ func (*Comment) GetFrontList(req req.GetFrontComments) ([]resp.FrontCommentVO, i
 }
 
 // 根据 [评论id列表] 获取 回复列表
-func (*Comment) GetReplyList(ids []int) []resp.ReplyVO {
+func (*Comment) GetReplyList(ids []int, ctx *gin.Context) []resp.ReplyVO {
 	list := make([]resp.ReplyVO, 0)
-	DB.
+	DB.WithContext(ctx.Request.Context()).
 		Select("c.user_id, u1.nickname, u1.avatar, u1.website, c.reply_user_id, u2.nickname AS reply_nickname, "+
 			"u2.website AS reply_website, c.id, c.parent_id, c.content, c.created_at").
 		Table("comment c").
@@ -84,10 +86,10 @@ func (*Comment) GetReplyList(ids []int) []resp.ReplyVO {
 		Order("c.parent_id, c.created_at ASC").
 		Find(&list)
 	// TODO! 理解一下
-	// t := DB.
+	// t := DB.WithContext(ctx.Request.Context()).
 	// 	Select("if(@mno=b.parent_id,@rank:=@rank+1,@rank:=1) as row_number,@mno:=b.parent_id,b.*").
 	// 	Table("(?) b", b)
-	// DB.
+	// DB.WithContext(ctx.Request.Context()).
 	// 	Table("(?) t", t).
 	// 	Where("row_numbser < 4").
 	// 	Find(&list)
@@ -95,9 +97,9 @@ func (*Comment) GetReplyList(ids []int) []resp.ReplyVO {
 }
 
 // 根据 parent_ids 获取已经审核的回复数量列表
-func (*Comment) GetReplyCountListByCommentId(ids []int) []dto.ReplyCountDTO {
+func (*Comment) GetReplyCountListByCommentId(ids []int, ctx *gin.Context) []dto.ReplyCountDTO {
 	list := make([]dto.ReplyCountDTO, 0)
-	DB.
+	DB.WithContext(ctx.Request.Context()).
 		Select("parent_id AS comment_id, COUNT(1) AS reply_count").
 		Table("comment").
 		Where("is_review = 1 AND parent_id in ?", ids).
@@ -107,9 +109,9 @@ func (*Comment) GetReplyCountListByCommentId(ids []int) []dto.ReplyCountDTO {
 }
 
 // 根据 [评论id] 获取 回复列表
-func (*Comment) GetReplyListByCommentId(id int, req req.PageQuery) []resp.ReplyVO {
+func (*Comment) GetReplyListByCommentId(id int, req req.PageQuery, ctx *gin.Context) []resp.ReplyVO {
 	list := make([]resp.ReplyVO, 0)
-	DB.
+	DB.WithContext(ctx.Request.Context()).
 		Select("c.user_id, u1.nickname, u1.avatar, u1.website, c.reply_user_id, u2.nickname AS reply_nickname, "+
 			"u2.website AS reply_website, c.id, c.parent_id, c.content, c.created_at").
 		Table("comment c").
@@ -123,8 +125,8 @@ func (*Comment) GetReplyListByCommentId(id int, req req.PageQuery) []resp.ReplyV
 }
 
 // 查询文章的评论数量
-func (*Comment) GetArticleCommentCount(articleId int) (count int64) {
-	DB.Model(&model.Comment{}).
+func (*Comment) GetArticleCommentCount(articleId int, ctx *gin.Context) (count int64) {
+	DB.WithContext(ctx.Request.Context()).Model(&model.Comment{}).
 		Where("topic_id = ? AND type = 1 AND is_review = 1", articleId).
 		Count(&count)
 	return
