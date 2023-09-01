@@ -20,6 +20,7 @@ func Logger() gin.HandlerFunc {
 		utils.Logger.Info(c.Request.URL.Path,
 			zap.Int("status", c.Writer.Status()),
 			zap.String("method", c.Request.Method),
+			//  添加 trace_id
 			zap.String("trace_id", trace.SpanFromContext(c.Request.Context()).SpanContext().TraceID().String()),
 			zap.String("query", c.Request.URL.RawQuery),
 			zap.String("query", c.Request.URL.RawQuery),

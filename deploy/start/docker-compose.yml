@@ -66,13 +66,21 @@ services:
       # Redis
       - REDIS_ADDR=${REDIS_HOST}:6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - OTEL_DB_SERVICE_NAME=Gin-Vue-Blog-MySQL
+      - OTEL_SERVICE_ADMIN_NAME=Gin-Vue-Blog-Admin
+      - OTEL_SERVICE_FRONT_NAME=Gin-Vue-Blog-Front
+      - OTEL_REDIS_SERVICE_NAME=Gin-Vue-Blog-Redis
+      - SERVICE_VERSION=v1.0
+      - OTEL_EXPORTER_OTLP_ENDPOINT=10.0.16.143:9529
+      - OTEL_EXPORTER_OTLP_URL_PATH=/otel/v1/traces
+      - INSECURE_MODE=false
     ports:
       - ${BACK_SERVER_PORT}:${BACK_SERVER_PORT}
       - ${FRONT_SERVER_PORT}:${FRONT_SERVER_PORT}
     networks:
       gvb-network:
-        # ipv4_address: ${BACKEND_HOST}
-        ipv4_address: 172.12.0.5
+        ipv4_address: ${BACKEND_HOST}
+        # ipv4_address: 172.12.0.5
 
   gvb-web:
     build: ../build/web
@@ -94,5 +102,5 @@ services:
       - "443:443"
     networks:
       gvb-network:
-        # ipv4_address: ${FRONTEND_HOST}
-        ipv4_address: 172.12.0.6
+        ipv4_address: ${FRONTEND_HOST}
+        # ipv4_address: 172.12.0.6

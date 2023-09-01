@@ -8,13 +8,13 @@ import { setupNaiveDiscreteApi } from './utils'
 import { setupRouter } from '@/router'
 import { setupStore } from '@/store'
 
-import { datafluxRum } from '@cloudcare/browser-rum';
+import { datafluxRum } from '@cloudcare/browser-rum'
 datafluxRum.init({
-    applicationId: 'GinVueBlog_Admin_Demo',
+    applicationId: 'GinVueBlog_Admin_Web',
     datakitOrigin: 'http://120.79.195.78:9529', // 协议（包括：//），域名（或IP地址）[和端口号]
     env: 'production',
     version: '1.0.0',
-    service: 'GinVueBlog_Admin_Demo',
+    service: 'GinVueBlog_Admin_Web',
     sessionSampleRate: 100,
     sessionReplaySampleRate: 100,
     trackInteractions: true,
@@ -22,7 +22,7 @@ datafluxRum.init({
     allowedTracingOrigins: [/.*/],  // 非必填，允许注入trace采集器所需header头部的所有请求列表。可以是请求的origin，也可以是是正则
     
 })
-datafluxRum.startSessionReplayRecording();
+datafluxRum.startSessionReplayRecording()
 
 
 async function setupApp() {

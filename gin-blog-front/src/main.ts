@@ -16,11 +16,11 @@ import App from './App.vue'
 
 import { datafluxRum } from '@cloudcare/browser-rum';
 datafluxRum.init({
-    applicationId: 'GinVueBlog_Demo',
+    applicationId: 'GinVueBlog_Front_Web',
     datakitOrigin: 'http://120.79.195.78:9529', // 协议（包括：//），域名（或IP地址）[和端口号]
     env: 'production',
     version: '1.0.0',
-    service: 'GinVueBlog_Demo',
+    service: 'GinVueBlog_Front_Web',
     sessionSampleRate: 100,
     sessionReplaySampleRate: 100,
     trackInteractions: true,

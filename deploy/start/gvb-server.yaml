@@ -104,6 +104,7 @@ spec:
       hostNetwork: true
       nodeSelector: 
         gvb-demo: "true"
+      shareProcessNamespace: true
       containers:
         - name: gvb-server
           image: registry.cn-shenzhen.aliyuncs.com/guance-south/gvb-server-demo:latest
@@ -114,7 +115,7 @@ spec:
           args:
             - /bin/sh
             - -c 
-            - cp -rf /gvb/* /app  && cd /app && /app/server -c config/config.docker.toml
+            - /gvb/server -c config/config.docker.toml
             # - sleep 30000
           env:
             - name: SERVER_BACKPORT
@@ -137,10 +138,10 @@ spec:
               value: "123456"
           volumeMounts:
             - name:  gvb-server-configmap
-              mountPath:  /app/config/config.docker.toml
+              mountPath:  /gvb/config/config.docker.toml
               subPath: config.docker.toml
-            - name: shared-data
-              mountPath: /app
+            # - name: shared-data
+            #   mountPath: /app
           securityContext:
             runAsUser: 0
             capabilities:
@@ -155,7 +156,7 @@ spec:
             - /otel-go-instrumentation
           env:
             - name: OTEL_GO_AUTO_TARGET_EXE
-              value: /app/server
+              value: /gvb/server
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://datakit-service.datakit:4317"
             - name: OTEL_SERVICE_NAME
@@ -166,15 +167,15 @@ spec:
               add:
                 - SYS_PTRACE
             privileged: true
-          volumeMounts:
-            - name: shared-data
-              mountPath: /app          
+          # volumeMounts:
+          #   - name: shared-data
+          #     mountPath: /app          
       volumes:
         - name: gvb-server-configmap
           configMap:
             name: gvb-server-configmap
-        - name: shared-data
-          emptyDir: {}
+        # - name: shared-data
+        #   emptyDir: {}
 
 
 
