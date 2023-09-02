@@ -15,7 +15,7 @@ jspm_packages/
 dist
 dist-ssr
 *.local
-
+.env.development
 # MacOS
 .DS_Store
 
@@ -31,9 +31,9 @@ dist-ssr
 *.sw?
 
 # rollup-plugin-visualizer
-stats.html
+# stats.html
 
 # Dotenv
-.env*
-*.local
-!.env.sample
+# .env*
+# *.local
+# !.env.sample
