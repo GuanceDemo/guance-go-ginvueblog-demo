@@ -77,7 +77,7 @@ spec:
           volumeMounts:
             - name: gvb-server-pvc
               mountPath: /gvb/public/uploaded
-            - name: config_docker_toml
+            - name: config-docker-toml
               mountPath: /gvb/config.docker.toml
 
       restartPolicy: Always
