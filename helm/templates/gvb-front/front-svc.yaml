@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gvb-front
+  
+  labels:
+    app: gvb-front
+spec:
+  selector: 
+    app: gvb-front
+  ports:
+    - protocol: TCP
+      name: http
+      port: 8081
+      nodePort: 30088
+      targetPort: 8081
+    - protocol: TCP
+      name: https
+      port: 8443
+      targetPort: 443
+  type: NodePort

@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gvb-server
+  
+  labels:
+    app: gvb-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gvb-server
+  template:
+    metadata:
+      labels:
+        app: gvb-server
+    spec:
+      containers:
+        - name: gvb-server
+        {{- with .Values.global.resources }}
+          resources:
+          {{- toYaml .Values.global.resources | nindent 12 }}
+        {{- end }}
+          env:
+            - name: "TZ"
+              value: "Asia/Shanghai"
+            - name: "SERVER_BACKPORT"
+              value: ":8765"
+            - name: "SERVER_FRONTPORT"
+              value: ":5678"
+            - name: "MYSQL_HOST"
+              value: "gvb-mysql"
+            - name: "MYSQL_PORT"
+              value: "3306"
+            - name: "MYSQL_DBNAME"
+              value: "gvb" 
+            - name: "MYSQL_USERNAME"
+              value: "root"
+            - name: "MYSQL_PASSWORD"
+              value: "123456"
+            - name: "REDIS_ADDR"
+              value: "gvb-redis:6379"
+            - name: "REDIS_PASSWORD"
+              value: "123456"
+            - name: "OTEL_DB_SERVICE_NAME"
+              value: "Gin-Vue-Blog-MySQL"
+            - name: "OTEL_SERVICE_ADMIN_NAME"
+              value: "Gin-Vue-Blog-Admin"
+            - name: "OTEL_SERVICE_FRONT_NAME"
+              value: "Gin-Vue-Blog-Front"
+            - name: "OTEL_REDIS_SERVICE_NAME"
+              value: "Gin-Vue-Blog-Redis"
+            - name: "SERVICE_VERSION"
+              value: "v1.0"
+            - name: OTEL_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: status.hostIP
+            - name: "OTEL_EXPORTER_OTLP_ENDPOINT"
+              value: "$(OTEL_AGENT_HOST):9529"
+            - name: "OTEL_EXPORTER_OTLP_URL_PATH"
+              value: "/otel/v1/traces"
+            - name: "INSECURE_MODE"
+              value: "false"
+          image: {{ .Values.global.docker_registry }}/{{ .Values.global.docker_namespace }}/demo-gvb-server:{{ .Values.global.version }}
+          imagePullPolicy: Always
+          command:
+            - /bin/sh
+            - -c
+            - ./wait-for gvb-mysql:3306 -t 5 -- ./server -c config.docker.toml
+          ports:
+            - containerPort: 5678
+              protocol: TCP
+            - containerPort: 8765
+              protocol: TCP
+          volumeMounts:
+            - name: gvb-server-pvc
+              mountPath: /gvb/public/uploaded
+
+      restartPolicy: Always
+      volumes:
+        - name: gvb-server-pvc
+          persistentVolumeClaim:
+            claimName: gvb-server-pv-claim

@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gvb-front
+  
+  labels:
+    app: gvb-front
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gvb-front
+  template:
+    metadata:
+      labels:
+        app: gvb-front
+    spec:
+      containers:
+        - name: gvb-front
+        {{- with .Values.global.resources }}
+          resources:
+          {{- toYaml .Values.global.resources | nindent 12 }}
+        {{- end }}
+          env:
+            - name: "USE_HTTPS"
+              value: "false"
+            - name: "SERVER_NAME"
+              value: "localhost"
+            - name: "BACKEND_HOST"
+              value: "gvb-server"
+            - name: "BACK_SERVER_PORT"
+              value: "8765"
+            - name: "FRONT_SERVER_PORT"
+              value: "5678"
+
+          image: {{ .Values.global.docker_registry }}/{{ .Values.global.docker_namespace }}/demo-gvb-web:{{ .Values.global.version }}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8081
+              protocol: TCP
+            - containerPort: 443
+              protocol: TCP
+      restartPolicy: Always

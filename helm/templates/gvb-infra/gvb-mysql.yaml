@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gvb-mysql
+  
+  labels:
+    app: gvb-mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gvb-mysql
+  template:
+    metadata:
+      labels:
+        app: gvb-mysql
+    spec:
+      containers:
+        - name: gvb-mysql
+        {{- with .Values.global.resources }}
+          resources:
+          {{- toYaml .Values.global.resources | nindent 12 }}
+        {{- end }}
+          env:
+            - name: "TZ"
+              value: "Asia/Shanghai"
+            - name: "MYSQL_ROOT_PASSWORD"
+              value: "123456"
+
+          image: {{ .Values.global.docker_registry }}/{{ .Values.global.docker_namespace }}/demo-gvb-mysql:{{ .Values.global.version }}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3306
+              protocol: TCP
+          volumeMounts:
+            - name: gvb-mysql-pvc
+              mountPath: /var/lib/mysql
+
+      restartPolicy: Always
+      volumes:
+        - name: gvb-mysql-pvc
+          persistentVolumeClaim:
+            claimName: gvb-mysql-pv-claim

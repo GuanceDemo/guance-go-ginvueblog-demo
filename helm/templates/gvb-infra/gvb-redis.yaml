@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gvb-redis
+  
+  labels:
+    app: gvb-redis
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: gvb-redis
+  template:
+    metadata:
+      labels:
+        app: gvb-redis
+    spec:
+      containers:
+        - name: gvb-redis
+          env: 
+            - name: "REDIS_PASSWORD"
+              value: "123456"
+        {{- with .Values.global.resources }}
+          resources:
+          {{- toYaml .Values.global.resources | nindent 12 }}
+        {{- end }}
+          command: 
+            - /bin/sh
+            - -c
+            - redis-server --requirepass $(REDIS_PASSWORD) --appendonly yes
+          image: {{ .Values.global.docker_registry }}/{{ .Values.global.docker_namespace }}/demo-gvb-redis:{{ .Values.global.version }}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 6379
+              protocol: TCP
+
+      restartPolicy: Always
