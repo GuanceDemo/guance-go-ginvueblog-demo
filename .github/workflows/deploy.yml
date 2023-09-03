@@ -20,4 +20,4 @@ jobs:
           curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 | bash
 
       - name: Deploy on Kubernetes
-        run: helm upgrade -i  --create-namespace gvb -n gvb ./deployment/helm
+        run: helm upgrade -i  --create-namespace gvb -n gvb1 ./deployment/helm
