@@ -9,7 +9,8 @@ networks:
 
 services:
   gvb-redis:
-    image: redis:alpine
+    # image: redis:alpine
+    image: pubrepo.guance.com/demo/demo-gvb-redis:latest
     container_name: gvb-redis
     restart: always
     volumes:
@@ -23,6 +24,7 @@ services:
 
   gvb-mysql:
     build: ../build/mysql
+    # image: pubrepo.guance.com/demo/demo-gvb-mysql:latest
     container_name: gvb-mysql
     restart: always
     volumes:
@@ -38,6 +40,7 @@ services:
 
   gvb-server:
     build: ../../gin-blog-server
+    # image: pubrepo.guance.com/demo/demo-gvb-server:latest
     container_name: gvb-server
     restart: always
     depends_on:
@@ -83,8 +86,8 @@ services:
         # ipv4_address: 172.12.0.5
 
   gvb-web:
-    # build: ../build/web
-    image: pubrepo.guance.com/demo/demo-gvb-web:latest
+    build: ../build/web
+    # image: pubrepo.guance.com/demo/demo-gvb-web:latest
     container_name: gvb-web
     restart: always
     # 需要开启 https, 请提供证书, 并设置 USE_HTTPS=true
