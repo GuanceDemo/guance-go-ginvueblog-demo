@@ -1,0 +1,59 @@
+name: Build and push gvb ui demo images
+
+on:
+  push:
+    branches:
+      - dev
+    paths:
+      - 'src/**'
+  workflow_dispatch:
+
+jobs:
+  build_and_push_images:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Build Admin with NPM
+        run: |
+          # export NODE_OPTIONS=--openssl-legacy-provider
+          cd ./src/gin-blog-admin
+          npm install --registry=https://registry.npmmirror.com #安装依赖
+          npm run build #执行前端打包
+        
+      - name: Build Admin with NPM
+        run: |
+          # export NODE_OPTIONS=--openssl-legacy-provider
+          cd ./src/gin-blog-front
+          npm install --registry=https://registry.npmmirror.com #安装依赖
+          npm run build #执行前端打包
+
+      - name: Copy dist to folder
+        run: |
+          rm -rf ./src/deploy/build/web/html/*
+          cp -rf  ./src/gin-blog-front/dist ./src/deploy/build/web/html/blog
+          cp -rf  ./src/gin-blog-admin/dist ./src/deploy/build/web/html/admin
+
+
+      - name: Log in to the Docker registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ vars.DOCKER_REGISTRY }}
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push demo images
+        uses: docker/build-push-action@v3.3.1
+        with:
+          context: ./src/deploy/build/web/
+          file: ./src/deploy/build/web/Dockerfile
+          push: true
+          tags: |
+            ${{ vars.DOCKER_REGISTRY }}/${{ vars.DOCKER_NAMESPACE }}/demo-gvb-web:${{ github.sha }}
+            ${{ vars.DOCKER_REGISTRY }}/${{ vars.DOCKER_NAMESPACE }}/demo-gvb-web:latest
