@@ -85,6 +85,6 @@ spec:
         - name: gvb-server-pvc
           persistentVolumeClaim:
             claimName: gvb-server-pv-claim
-        - name: config_docker_toml
+        - name: config-docker-toml
           configMap:
             name: gvb-server-configmap
