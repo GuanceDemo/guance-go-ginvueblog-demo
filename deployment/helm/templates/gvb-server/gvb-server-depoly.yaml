@@ -68,7 +68,7 @@ spec:
           command:
             - /bin/sh
             - -c
-            - ./wait-for gvb-mysql:3306 -t 5 -- ./server -c config.docker.toml
+            - ./wait-for gvb-mysql:3306 -t 5 -- ./server -c config.toml
           ports:
             - containerPort: 5678
               protocol: TCP
@@ -78,7 +78,7 @@ spec:
             - name: gvb-server-pvc
               mountPath: /gvb/public/uploaded
             - name: config-docker-toml
-              mountPath: /gvb/config.docker.toml
+              mountPath: /gvb/config.toml
 
       restartPolicy: Always
       volumes:
@@ -88,3 +88,4 @@ spec:
         - name: config-docker-toml
           configMap:
             name: gvb-server-configmap
+            subPath: config.toml

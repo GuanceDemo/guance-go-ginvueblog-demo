@@ -3,7 +3,7 @@ kind: ConfigMap
 metadata:
   name: gvb-server-configmap
 data:
-  config.docker.toml: |
+  config.toml: |
     # Docker 运行时读取的配置文件, 有些参数会被 docker-compose 中的环境变量覆盖
     # 具体参考 deploy/start 下 docker-compose 和 .env 文件
     # 例如: MYSQL_PORT 会覆盖 [Mysql] 下的 Port
