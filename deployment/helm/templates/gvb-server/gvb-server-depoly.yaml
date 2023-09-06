@@ -79,6 +79,7 @@ spec:
               mountPath: /gvb/public/uploaded
             - name: config-docker-toml
               mountPath: /gvb/config.toml
+              subPath: config.toml
 
       restartPolicy: Always
       volumes:
@@ -88,4 +89,3 @@ spec:
         - name: config-docker-toml
           configMap:
             name: gvb-server-configmap
-            subPath: config.toml
