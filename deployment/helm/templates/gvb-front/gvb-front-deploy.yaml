@@ -36,7 +36,7 @@ spec:
           image: {{ .Values.global.docker_registry }}/{{ .Values.global.docker_namespace }}/demo-gvb-web:{{ .Values.global.version }}
           imagePullPolicy: Always
           ports:
-            - containerPort: 8081
+            - containerPort: 80
               protocol: TCP
             - containerPort: 443
               protocol: TCP
