@@ -5,6 +5,11 @@
 
 ***
 
+## 前提条件
+[安装 DataKit Operator 和 DataKit](https://github.com/GuanceDemo/guance-datakit-demo)
+
+***
+
 ## 方式一：Helm 方式手动安装
 > 通过 Helm 安装至 Kubernetes 集群，适合快速安装 guance-go-ginvueblog-demo 进行演示的场景。
 
