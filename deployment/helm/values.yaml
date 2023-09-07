@@ -1,5 +1,5 @@
 global:
-  storageClass: df-nfs-storage
+  storageClass: manual
   docker_registry: pubrepo.guance.com
   docker_namespace: demo
   version: latest
