@@ -3,7 +3,7 @@ name: Build and push gvb ui demo images
 on:
   push:
     branches:
-      - dev
+      - dev-benjamin
     paths:
       - 'src/**'
   workflow_dispatch:
