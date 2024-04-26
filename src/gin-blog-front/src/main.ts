@@ -17,7 +17,7 @@ import App from './App.vue'
 import { datafluxRum } from '@cloudcare/browser-rum';
 datafluxRum.init({
     applicationId: 'GinVueBlog_Front_Web',
-    datakitOrigin: 'http://120.79.195.78:9529', // 协议（包括：//），域名（或IP地址）[和端口号]
+    datakitOrigin: 'http://dataflux.anta-poc.atxapi.com/datakit', // 协议（包括：//），域名（或IP地址）[和端口号]
     env: 'production',
     version: '1.0.0',
     service: 'GinVueBlog_Front_Web',
