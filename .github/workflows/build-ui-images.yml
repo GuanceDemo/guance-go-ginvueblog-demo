@@ -3,7 +3,7 @@ name: Build and push gvb ui demo images
 on:
   push:
     branches:
-      - dev
+      - dataway_test
     paths:
       - 'src/**'
   workflow_dispatch:
@@ -55,5 +55,5 @@ jobs:
           file: ./src/deploy/build/web/Dockerfile
           push: true
           tags: |
-            ${{ vars.DOCKER_REGISTRY }}/${{ vars.DOCKER_NAMESPACE }}/demo-gvb-web:${{ github.sha }}
-            ${{ vars.DOCKER_REGISTRY }}/${{ vars.DOCKER_NAMESPACE }}/demo-gvb-web:latest
+            ${{ vars.DOCKER_REGISTRY }}/${{ vars.DOCKER_NAMESPACE }}/demo-gvb-web:${{ github.sha }}_dataway
+            ${{ vars.DOCKER_REGISTRY }}/${{ vars.DOCKER_NAMESPACE }}/demo-gvb-web:latest_dataway
