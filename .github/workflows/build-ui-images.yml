@@ -37,8 +37,8 @@ jobs:
       - name: Copy dist to folder
         run: |
           rm -rf ./src/deploy/build/web/html/*
-          mkdir  ./src/deploy/build/web/html/admin
-          mkdir  ./src/deploy/build/web/html/blog
+          mkdir -p ./src/deploy/build/web/html/admin
+          mkdir -p  ./src/deploy/build/web/html/blog
           cp -rf  ./src/gin-blog-front/dist/* ./src/deploy/build/web/html/blog
           cp -rf  ./src/gin-blog-admin/dist/* ./src/deploy/build/web/html/admin
 
